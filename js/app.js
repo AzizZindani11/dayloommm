@@ -60,6 +60,7 @@ import {
   fetchProfile,
   fetchTasksWithChecklists,
   fetchRankHistory,
+  fetchRPLedger,
   recordRankHistory,
   createTask,
   updateTask,
@@ -216,24 +217,42 @@ class DayloomApp {
     this.isLoadingCloudData = true;
     this.loadingCloudUserId = userId;
 
-    // Bersihkan tampilan agar data akun sebelumnya tidak terlihat saat memuat
+    // Bersihkan tampilan atau gunakan cache lokal akun pengguna terlebih dahulu jika ada, untuk mencegah UI berkedip (0 RP flash)
     const initialName = this.currentUser?.user_metadata?.name ||
       this.currentUser?.user_metadata?.username ||
       (this.currentUser?.email ? this.currentUser.email.split('@')[0] : 'Pengembara');
 
-    const loadingState = createDefaultState();
-    loadingState.isCloud = true;
-    loadingState.cloudUserId = userId;
-    loadingState.profile.name = initialName;
-    loadingState.tasks = []; // Kosongkan daftar misi agar tidak bocor data lama/tamu
-    this.state = loadingState;
-    this.refreshAllUI();
+    let preloadedFromCache = false;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`dayloom_user_${userId}`);
+        if (cached) {
+          const parsedCache = JSON.parse(cached);
+          if (parsedCache && parsedCache.cloudUserId === userId) {
+            this.state = validateAndSanitizeState(parsedCache, { isCloud: true, cloudUserId: userId });
+            preloadedFromCache = true;
+            this.refreshAllUI();
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!preloadedFromCache) {
+      const loadingState = createDefaultState();
+      loadingState.isCloud = true;
+      loadingState.cloudUserId = userId;
+      loadingState.profile.name = initialName;
+      loadingState.tasks = []; // Kosongkan daftar misi agar tidak bocor data lama/tamu
+      this.state = loadingState;
+      this.refreshAllUI();
+    }
 
     try {
-      const [profileData, tasksData, rankHistoryData] = await Promise.all([
+      const [profileData, tasksData, rankHistoryData, rpLedgerData] = await Promise.all([
         fetchProfile(userId),
         fetchTasksWithChecklists(userId),
-        fetchRankHistory(userId)
+        fetchRankHistory(userId),
+        fetchRPLedger(userId)
       ]);
 
       // CANCELLATION GUARD: Jika request ID telah usang atau user telah berganti, buang hasil ini!
@@ -242,7 +261,7 @@ class DayloomApp {
         return;
       }
 
-      const mappedState = mapCloudDataToState(profileData, tasksData, this.currentUser, rankHistoryData);
+      const mappedState = mapCloudDataToState(profileData, tasksData, this.currentUser, rankHistoryData, rpLedgerData);
 
       // Hitung pencapaian yang terbuka berdasarkan kondisi nyata misi & RP cloud
       mappedState.unlockedAchievements = evaluateAchievements(mappedState).map(a => a.id);
@@ -258,6 +277,13 @@ class DayloomApp {
       // Sinkronkan tema waktu jika ada di profil awan
       if (mappedState.profile.timeOfDay) {
         this.applyTimeOfDayTheme(mappedState.profile.timeOfDay);
+      }
+
+      // Self-Healing: Jika total_rp di Supabase tertinggal atau NULL di database, sinkronkan nilai rekonsiliasi yang benar
+      if (typeof profileData?.total_rp !== 'number' || profileData.total_rp < mappedState.rp) {
+        updateProfile(userId, { total_rp: mappedState.rp }).catch(err => {
+          console.warn('Dayloom: Gagal menyelaraskan total_rp profil di awan:', err);
+        });
       }
 
       // Simpan ke cache user lokal (TIDAK menyentuh dayloom_save_v1)
@@ -830,9 +856,11 @@ class DayloomApp {
               this.state.rp = Math.floor(freshProfile.total_rp);
             } else {
               this.state.rp += 10;
+              updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => {});
             }
           } catch (_) {
             this.state.rp += 10;
+            updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => {});
           }
         }
 

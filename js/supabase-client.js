@@ -201,6 +201,9 @@ export async function updateProfile(userId, profileUpdates) {
   if (profileUpdates.selected_character !== undefined) payload.selected_character = profileUpdates.selected_character;
   if (profileUpdates.featured_achievements !== undefined) payload.featured_achievements = profileUpdates.featured_achievements;
   if (profileUpdates.visited_locations !== undefined) payload.visited_locations = profileUpdates.visited_locations;
+  if (typeof profileUpdates.total_rp === 'number' && profileUpdates.total_rp >= 0) {
+    payload.total_rp = Math.floor(profileUpdates.total_rp);
+  }
 
   const { data, error } = await client
     .from('profiles')
@@ -514,9 +517,14 @@ export async function claimTaskRP({ taskId, localId }) {
   const client = getSupabase();
   if (!client) throw new Error('Koneksi Supabase belum siap.');
 
+  // Validasi format UUID untuk mencegah PostgreSQL syntax error pada parameter p_task_id UUID
+  const isUUID = typeof taskId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
+  const cleanTaskId = isUUID ? taskId : null;
+  const cleanLocalId = localId || (!isUUID && taskId ? taskId : null);
+
   const { data, error } = await client.rpc('claim_task_rp', {
-    p_task_id: taskId || null,
-    p_local_id: localId || null
+    p_task_id: cleanTaskId,
+    p_local_id: cleanLocalId
   });
 
   if (error) throw error;
@@ -582,5 +590,33 @@ export async function recordRankHistory(userId, rankData, rpAtTime) {
   } catch (err) {
     console.warn('Dayloom: Pengecualian saat mencatat rank_history:', err);
     return null;
+  }
+}
+
+/* ============================================================================
+ * 6. BUKU BESAR RP (TABEL RP_LEDGER)
+ * ============================================================================ */
+
+/**
+ * Mengambil buku besar rp_ledger milik petualang dari Supabase
+ */
+export async function fetchRPLedger(userId) {
+  const client = getSupabase();
+  if (!client || !userId) return [];
+
+  try {
+    const { data, error } = await client
+      .from('rp_ledger')
+      .select('id, points, reason, created_at')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.warn('Dayloom: Catatan rp_ledger belum tersedia atau tidak dapat diakses:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn('Dayloom: Gagal mengambil rp_ledger awan:', err);
+    return [];
   }
 }

@@ -137,6 +137,7 @@ const storage = createMockStorage();
 // Data asli mode tamu di 'dayloom_save_v1'
 const initialGuest = createDefaultState();
 initialGuest.profile.name = 'Pengembara Tamu';
+initialGuest.rewardedTaskIds = ['quest_g1', 'quest_g2'];
 initialGuest.rp = 20;
 initialGuest.tasks[0].title = 'Misi Rahasia Tamu';
 storage.setItem(STORAGE_KEY, JSON.stringify(initialGuest));

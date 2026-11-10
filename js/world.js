@@ -8,6 +8,7 @@
 import { VILLAGE_LOCATIONS } from './config.js';
 import { getCharacterSVG } from './art.js';
 import { sound } from './audio.js';
+import { getCurrentRank } from './progression.js';
 
 export class ParallaxWorld {
   constructor({ onInteractLocation, onCollectPetal, getState }) {
@@ -220,12 +221,8 @@ export class ParallaxWorld {
     const hatId = state?.profile?.hat || 'straw_hat';
     const rp = state?.rp || 0;
 
-    let rankId = 'epic';
-    if (rp >= 500) rankId = 'mythic_immortal';
-    else if (rp >= 350) rankId = 'mythic_glory';
-    else if (rp >= 220) rankId = 'mythic_honor';
-    else if (rp >= 120) rankId = 'mythic';
-    else if (rp >= 50) rankId = 'legend';
+    const curRank = getCurrentRank(rp);
+    const rankId = curRank.id || 'epic';
 
     const svgHolder = this.charContainer.querySelector('.actor-sprite');
     if (svgHolder) {

@@ -208,20 +208,41 @@ export function validateAndSanitizeState(raw, options = {}) {
  * Memetakan data profil, tasks, dan riwayat peringkat dari database Supabase ke struktur state frontend Dayloom.
  * Menjamin total_rp dan rank berasal dari server (server-authoritative) dan tidak dihitung ulang oleh buku besar lokal.
  */
-export function mapCloudDataToState(profileData, tasksData, user = null, rankHistoryData = []) {
+export function mapCloudDataToState(profileData, tasksData, user = null, rankHistoryData = [], rpLedgerData = []) {
   const initialName = (profileData && profileData.username) ||
     (user && user.user_metadata && (user.user_metadata.name || user.user_metadata.username)) ||
     (user && user.email ? user.email.split('@')[0] : 'Pengembara Hanamori');
 
   const userId = (profileData && profileData.id) || (user && user.id) || null;
 
-  const totalRP = typeof profileData?.total_rp === 'number' && !isNaN(profileData.total_rp) && profileData.total_rp >= 0
+  // 1. RP dari tabel profiles (profiles.total_rp)
+  const profileRP = typeof profileData?.total_rp === 'number' && !isNaN(profileData.total_rp) && profileData.total_rp >= 0
     ? Math.floor(profileData.total_rp)
     : 0;
 
+  // 2. RP dari daftar tugas yang sudah diklaim (tasks.is_rp_claimed === true)
+  const tasksList = Array.isArray(tasksData) ? tasksData : [];
+  const claimedTasks = tasksList.filter(t => t && (t.isRPClaimed || t.is_rp_claimed));
+  const claimedTasksRP = claimedTasks.length * 10;
+
+  // 3. RP dari buku besar rp_ledger (jika tersedia)
+  const ledgerList = Array.isArray(rpLedgerData) ? rpLedgerData : [];
+  const ledgerRP = ledgerList.reduce((sum, item) => sum + (Number(item?.points) || 0), 0);
+
+  // 4. RP milestone yang tercatat di riwayat rank_history
+  const historyList = Array.isArray(rankHistoryData) ? rankHistoryData : [];
+  const historyRP = historyList.reduce((max, r) => {
+    const val = Number(r?.rp_at_time ?? r?.rpAtTime);
+    return Number.isFinite(val) && val > max ? val : max;
+  }, 0);
+
+  // Rekonsiliasi otoritatif: Ambil nilai RP maksimum yang sah dari seluruh sumber data Supabase
+  // Mencegah penurunan atau reset rank akibat profiles.total_rp tertinggal / bernilai NULL di database
+  const totalRP = Math.max(profileRP, claimedTasksRP, ledgerRP, historyRP);
+
   const curRank = getRankByRP(totalRP);
 
-  const mappedRankHistory = Array.isArray(rankHistoryData) && rankHistoryData.length > 0
+  let mappedRankHistory = Array.isArray(rankHistoryData) && rankHistoryData.length > 0
     ? rankHistoryData.map(r => ({
         rankId: r.rank_id || r.rankId || curRank.id,
         rankName: r.rank_name || r.rankName || curRank.name,
@@ -236,6 +257,16 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
           rpAtTime: totalRP
         }
       ];
+
+  // Pastikan curRank ada dalam riwayat peringkat pemain
+  if (!mappedRankHistory.some(r => r.rankId === curRank.id)) {
+    mappedRankHistory.push({
+      rankId: curRank.id,
+      rankName: curRank.name,
+      reachedAt: profileData?.updated_at || new Date().toISOString(),
+      rpAtTime: totalRP
+    });
+  }
 
   const rawState = {
     version: 1,

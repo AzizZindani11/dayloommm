@@ -193,7 +193,7 @@ BEGIN
   SELECT * INTO v_task FROM public.tasks
   WHERE user_id = v_user_id AND (
     (p_task_id IS NOT NULL AND id = p_task_id) OR
-    (p_local_id IS NOT NULL AND local_id = p_local_id)
+    (p_local_id IS NOT NULL AND (local_id = p_local_id OR id::text = p_local_id))
   )
   LIMIT 1;
 
@@ -203,7 +203,7 @@ BEGIN
 
   -- 2. Anti-duplikasi ketat: jika RP sudah pernah diklaim, tolak penambahan
   IF v_task.is_rp_claimed = true THEN
-    SELECT total_rp INTO v_total_rp FROM public.profiles WHERE id = v_user_id;
+    SELECT COALESCE(total_rp, 0) INTO v_total_rp FROM public.profiles WHERE id = v_user_id;
     RETURN jsonb_build_object(
       'success', false,
       'already_claimed', true,
@@ -232,9 +232,9 @@ BEGIN
   INSERT INTO public.rp_ledger (user_id, task_id, points, reason)
   VALUES (v_user_id, v_task.id, 10, 'Menyelesaikan Misi: ' || v_task.title);
 
-  -- 6. Tambahkan total_rp pada profil petualang secara atomik
+  -- 6. Tambahkan total_rp pada profil petualang secara atomik (dengan COALESCE agar aman jika total_rp bernilai NULL)
   UPDATE public.profiles
-  SET total_rp = total_rp + 10,
+  SET total_rp = COALESCE(total_rp, 0) + 10,
       updated_at = now()
   WHERE id = v_user_id
   RETURNING total_rp INTO v_total_rp;
