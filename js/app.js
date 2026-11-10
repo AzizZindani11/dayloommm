@@ -20,7 +20,9 @@ import {
   exportBackupJSON,
   importBackupJSON,
   createDefaultState,
-  getRelativeDateStr
+  getRelativeDateStr,
+  isValidEmail,
+  formatAuthErrorMessage
 } from './storage.js';
 import {
   getCurrentRank,
@@ -57,6 +59,8 @@ import {
   onAuthStateChange,
   fetchProfile,
   fetchTasksWithChecklists,
+  fetchRankHistory,
+  recordRankHistory,
   createTask,
   updateTask,
   syncTaskChecklists,
@@ -65,36 +69,6 @@ import {
   claimTaskRP,
   updateProfile
 } from './supabase-client.js';
-
-/**
- * Menerjemahkan pesan error Supabase Auth ke Bahasa Indonesia yang ramah petualang
- */
-function formatAuthErrorMessage(err) {
-  if (!err) return 'Terjadi kesalahan sistem yang tidak diketahui.';
-  const msg = err.message || String(err);
-  if (/invalid login credentials/i.test(msg) || /invalid_grant/i.test(msg)) {
-    return 'Alamat email atau kata sandi tidak cocok. Silakan periksa kembali.';
-  }
-  if (/user already registered/i.test(msg) || /already exists/i.test(msg)) {
-    return 'Alamat email ini sudah terdaftar. Silakan gunakan tab Masuk.';
-  }
-  if (/password should be at least 6 characters/i.test(msg) || /weak_password/i.test(msg)) {
-    return 'Kata sandi terlalu pendek. Gunakan minimal 6 karakter.';
-  }
-  if (/invalid email/i.test(msg) || /email address.*invalid/i.test(msg)) {
-    return 'Format alamat email tidak valid.';
-  }
-  if (/email not confirmed/i.test(msg)) {
-    return 'Alamat email belum dikonfirmasi. Silakan periksa kotak masuk atau spam email Anda.';
-  }
-  if (/rate limit/i.test(msg) || /too many requests/i.test(msg)) {
-    return 'Terlalu banyak percobaan. Harap tunggu beberapa saat sebelum mencoba kembali.';
-  }
-  if (/network/i.test(msg) || /failed to fetch/i.test(msg) || /fetch failed/i.test(msg)) {
-    return 'Gagal terhubung ke server awan. Periksa koneksi internet Anda.';
-  }
-  return msg;
-}
 
 class DayloomApp {
   constructor() {
@@ -114,6 +88,7 @@ class DayloomApp {
     this.authSubscription = null;
     this.isLoadingCloudData = false;
     this.loadedCloudUserId = null;
+    this.loadingCloudUserId = null;
     this.cloudLoadRequestId = 0;
 
     // Timer Meditasi Kuil Tenun Waktu
@@ -224,7 +199,9 @@ class DayloomApp {
    * Memulihkan kembali data asli dari 'dayloom_save_v1' secara utuh.
    */
   switchToGuestState() {
+    this.cloudLoadRequestId++;
     this.state = loadState();
+    this.applyTimeOfDayTheme(this.state.profile?.timeOfDay || 'pagi');
     this.refreshAllUI();
   }
 
@@ -237,6 +214,7 @@ class DayloomApp {
     if (!userId) return;
     const currentRequestId = ++this.cloudLoadRequestId;
     this.isLoadingCloudData = true;
+    this.loadingCloudUserId = userId;
 
     // Bersihkan tampilan agar data akun sebelumnya tidak terlihat saat memuat
     const initialName = this.currentUser?.user_metadata?.name ||
@@ -252,9 +230,10 @@ class DayloomApp {
     this.refreshAllUI();
 
     try {
-      const [profileData, tasksData] = await Promise.all([
+      const [profileData, tasksData, rankHistoryData] = await Promise.all([
         fetchProfile(userId),
-        fetchTasksWithChecklists(userId)
+        fetchTasksWithChecklists(userId),
+        fetchRankHistory(userId)
       ]);
 
       // CANCELLATION GUARD: Jika request ID telah usang atau user telah berganti, buang hasil ini!
@@ -263,19 +242,7 @@ class DayloomApp {
         return;
       }
 
-      const mappedState = mapCloudDataToState(profileData, tasksData, this.currentUser);
-
-      // Hitung gelar peringkat yang sesuai dengan total RP cloud
-      const curRank = getCurrentRank(mappedState.rp);
-      mappedState.profile.title = curRank.title;
-      mappedState.rankHistory = [
-        {
-          rankId: curRank.id,
-          rankName: curRank.name,
-          reachedAt: profileData?.updated_at || new Date().toISOString(),
-          rpAtTime: mappedState.rp
-        }
-      ];
+      const mappedState = mapCloudDataToState(profileData, tasksData, this.currentUser, rankHistoryData);
 
       // Hitung pencapaian yang terbuka berdasarkan kondisi nyata misi & RP cloud
       mappedState.unlockedAchievements = evaluateAchievements(mappedState).map(a => a.id);
@@ -325,6 +292,7 @@ class DayloomApp {
     } finally {
       if (currentRequestId === this.cloudLoadRequestId) {
         this.isLoadingCloudData = false;
+        this.loadingCloudUserId = null;
       }
     }
   }
@@ -871,6 +839,20 @@ class DayloomApp {
         const newRank = getCurrentRank(this.state.rp);
         const rankedUp = newRank.index > prevRank.index;
 
+        if (rankedUp) {
+          this.state.profile.title = newRank.title;
+          this.state.rankHistory.push({
+            rankId: newRank.id,
+            rankName: newRank.name,
+            reachedAt: new Date().toISOString(),
+            rpAtTime: this.state.rp
+          });
+          // Catat ke tabel rank_history Supabase untuk sinkronisasi multi-perangkat
+          recordRankHistory(this.currentUser.id, newRank, this.state.rp).catch(err => {
+            console.warn('Dayloom: Gagal mencatat rank_history ke awan:', err);
+          });
+        }
+
         this.persistAndRefresh();
 
         if (rankedUp) {
@@ -1205,7 +1187,7 @@ class DayloomApp {
         // Sinkronisasi pembuatan misi baru ke cloud jika akun aktif
         if (this.currentUser) {
           const created = await createTask(this.currentUser.id, newTaskData);
-          newTaskData.dbId = created.id || created.dbId;
+          newTaskData.dbId = created.dbId || created.id;
           newTaskData.checklist = Array.isArray(created.checklist) ? created.checklist : this.draftChecklist;
         }
 
@@ -1675,7 +1657,13 @@ class DayloomApp {
         }
         sound.playCheck();
         this.refreshAllUI();
-        this.showToast('Foto profil berhasil diperbarui dan tersimpan di perangkat ini.', 'success');
+        this.showToast('Foto profil berhasil diperbarui!', 'success');
+
+        if (this.currentUser) {
+          updateProfile(this.currentUser.id, { avatar_url: dataUrl }).catch(err => {
+            console.warn('Dayloom: Gagal menyinkronkan foto profil ke awan:', err);
+          });
+        }
       } catch (err) {
         sound.playWarning();
         this.showToast('Gambar tidak dapat diproses. Coba gambar lain.', 'warning');
@@ -2041,6 +2029,19 @@ class DayloomApp {
           return;
         }
 
+        if (!isValidEmail(email)) {
+          sound.playWarning();
+          if (errorBanner) {
+            errorBanner.style.background = '#FCE6E6';
+            errorBanner.style.borderColor = '#C94A4A';
+            errorBanner.style.color = '#922B2B';
+            errorBanner.textContent = 'Format alamat email tidak valid. Gunakan email standar (contoh: nama@gmail.com).';
+            errorBanner.classList.remove('hidden');
+          }
+          emailInput?.focus();
+          return;
+        }
+
         if (this.authMode === 'register' && !adventurerName) {
           sound.playWarning();
           if (errorBanner) {
@@ -2140,9 +2141,11 @@ class DayloomApp {
           }
 
           // Logout berhasil
+          this.cloudLoadRequestId++;
           this.currentUser = null;
           this.currentSession = null;
           this.loadedCloudUserId = null;
+          this.loadingCloudUserId = null;
           this.updateAuthUI(null);
           this.switchToGuestState();
           this.closeAuthModal();
@@ -2253,10 +2256,11 @@ class DayloomApp {
           if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
             if (session && session.user) {
               const isDifferentUser = !this.currentUser || this.currentUser.id !== session.user.id || this.loadedCloudUserId !== session.user.id;
+              const alreadyLoadingThisUser = this.loadingCloudUserId === session.user.id;
               this.currentSession = session;
               this.currentUser = session.user;
               this.updateAuthUI(this.currentUser);
-              if (isDifferentUser) {
+              if (isDifferentUser && !alreadyLoadingThisUser) {
                 await this.loadCloudUserData(session.user.id);
               }
             }
@@ -2266,9 +2270,11 @@ class DayloomApp {
               this.currentUser = session.user;
             }
           } else if (event === 'SIGNED_OUT') {
+            this.cloudLoadRequestId++;
             this.currentSession = null;
             this.currentUser = null;
             this.loadedCloudUserId = null;
+            this.loadingCloudUserId = null;
             this.updateAuthUI(null);
             this.switchToGuestState();
           }

@@ -157,7 +157,7 @@ console.log('  [LULUS] Data akun cloud tersimpan terisolasi di "dayloom_user_usr
 console.log('\n[4/4] Menguji kontrak createTask() pada js/supabase-client.js...');
 
 // Verifikasi struktur kode createTask()
-const clientCode = fs.readFileSync('js/supabase-client.js', 'utf8');
+const clientCode = fs.readFileSync('js/supabase-client.js', 'utf8').replace(/\r\n/g, '\n');
 
 assert(
   clientCode.includes('.insert(checklistPayloads)\n      .select()') ||

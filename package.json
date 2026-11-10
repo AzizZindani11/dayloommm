@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "node scripts/build-keys.js",
-    "test": "node tests/test_suite.js && node tests/e2e_verify.js && node tests/ui_flow_test.js && node tests/atmosphere_test.js && node tests/profile_rank_test.js && node tests/arena_env_test.js && node tests/local_pvp_input_test.js && node tests/pvp_polishing_test.js && node tests/stage4_step1_isolation_test.js && node tests/stage4_step2_loading_test.js && node tests/stage4_full_integration_test.js && node tests/stage5_production_readiness_test.js"
+    "test": "node tests/test_suite.js && node tests/e2e_verify.js && node tests/ui_flow_test.js && node tests/atmosphere_test.js && node tests/profile_rank_test.js && node tests/arena_env_test.js && node tests/local_pvp_input_test.js && node tests/pvp_polishing_test.js && node tests/stage4_step1_isolation_test.js && node tests/stage4_step2_loading_test.js && node tests/stage4_full_integration_test.js && node tests/stage5_production_readiness_test.js && node tests/registration_email_validation_test.js && node tests/full_auth_cloud_integrity_test.js"
   }
 }
 

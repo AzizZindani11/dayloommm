@@ -13,6 +13,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_CONFIG } from './config.js';
+import { isValidEmail } from './storage.js';
+
+export { isValidEmail };
 
 let supabaseClient = null;
 
@@ -68,11 +71,16 @@ export async function signUp(email, password, adventurerName) {
   const client = getSupabase();
   if (!client) throw new Error('Koneksi Supabase belum siap. Periksa konfigurasi Anon Key.');
 
+  const trimmedEmail = (email || '').trim().toLowerCase();
+  if (!isValidEmail(trimmedEmail)) {
+    throw new Error('Format alamat email tidak valid.');
+  }
+
   const trimmedName = (adventurerName || '').trim();
   const safeName = trimmedName.length > 30 ? trimmedName.slice(0, 30) : (trimmedName || 'Pengembara Hanamori');
 
   const { data, error } = await client.auth.signUp({
-    email: email.trim(),
+    email: trimmedEmail,
     password,
     options: {
       data: {
@@ -93,8 +101,9 @@ export async function signIn(email, password) {
   const client = getSupabase();
   if (!client) throw new Error('Koneksi Supabase belum siap. Periksa konfigurasi Anon Key.');
 
+  const trimmedEmail = (email || '').trim().toLowerCase();
   const { data, error } = await client.auth.signInWithPassword({
-    email: email.trim(),
+    email: trimmedEmail,
     password
   });
 
@@ -512,4 +521,66 @@ export async function claimTaskRP({ taskId, localId }) {
 
   if (error) throw error;
   return data;
+}
+
+/* ============================================================================
+ * 5. RIWAYAT PERINGKAT (TABEL RANK_HISTORY)
+ * ============================================================================ */
+
+/**
+ * Mengambil riwayat kenaikan peringkat petualang dari database Supabase
+ */
+export async function fetchRankHistory(userId) {
+  const client = getSupabase();
+  if (!client || !userId) return [];
+
+  try {
+    const { data, error } = await client
+      .from('rank_history')
+      .select('*')
+      .eq('user_id', userId)
+      .order('reached_at', { ascending: true });
+
+    if (error) {
+      console.warn('Dayloom: Catatan rank_history tidak dapat diakses atau belum tersedia:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn('Dayloom: Gagal mengambil rank_history awan:', err);
+    return [];
+  }
+}
+
+/**
+ * Menyimpan catatan kenaikan peringkat baru ke tabel rank_history
+ */
+export async function recordRankHistory(userId, rankData, rpAtTime) {
+  const client = getSupabase();
+  if (!client || !userId || !rankData) return null;
+
+  try {
+    const payload = {
+      user_id: userId,
+      rank_id: rankData.id,
+      rank_name: rankData.name,
+      rp_at_time: Math.max(0, Math.floor(rpAtTime || 0)),
+      reached_at: new Date().toISOString()
+    };
+
+    const { data, error } = await client
+      .from('rank_history')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      console.warn('Dayloom: Gagal mencatat rank_history ke awan:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Dayloom: Pengecualian saat mencatat rank_history:', err);
+    return null;
+  }
 }

@@ -2,7 +2,23 @@
  * DAYLOOM — Sistem Penyimpanan Lokal, Validasi Data & Cadangan (Backup)
  */
 
-import { STORAGE_KEY } from './config.js';
+import { STORAGE_KEY, RANKS } from './config.js';
+
+/**
+ * Menentukan peringkat resmi berdasarkan nilai RP
+ */
+function getRankByRP(rp) {
+  const safeRP = Math.max(0, Number(rp) || 0);
+  if (Array.isArray(RANKS)) {
+    for (let i = RANKS.length - 1; i >= 0; i--) {
+      if (safeRP >= RANKS[i].minRP) {
+        return RANKS[i];
+      }
+    }
+    return RANKS[0] || { id: 'epic', name: 'Epic', title: 'Penenun Fajar' };
+  }
+  return { id: 'epic', name: 'Epic', title: 'Penenun Fajar' };
+}
 
 /**
  * Membuat tanggal relatif terhadap hari ini dalam format YYYY-MM-DD
@@ -189,10 +205,10 @@ export function validateAndSanitizeState(raw, options = {}) {
 }
 
 /**
- * Memetakan data profil dan tasks dari database Supabase ke struktur state frontend Dayloom.
- * Menjamin total_rp berasal dari server (profiles.total_rp) dan tidak dihitung ulang oleh buku besar lokal.
+ * Memetakan data profil, tasks, dan riwayat peringkat dari database Supabase ke struktur state frontend Dayloom.
+ * Menjamin total_rp dan rank berasal dari server (server-authoritative) dan tidak dihitung ulang oleh buku besar lokal.
  */
-export function mapCloudDataToState(profileData, tasksData, user = null) {
+export function mapCloudDataToState(profileData, tasksData, user = null, rankHistoryData = []) {
   const initialName = (profileData && profileData.username) ||
     (user && user.user_metadata && (user.user_metadata.name || user.user_metadata.username)) ||
     (user && user.email ? user.email.split('@')[0] : 'Pengembara Hanamori');
@@ -203,6 +219,24 @@ export function mapCloudDataToState(profileData, tasksData, user = null) {
     ? Math.floor(profileData.total_rp)
     : 0;
 
+  const curRank = getRankByRP(totalRP);
+
+  const mappedRankHistory = Array.isArray(rankHistoryData) && rankHistoryData.length > 0
+    ? rankHistoryData.map(r => ({
+        rankId: r.rank_id || r.rankId || curRank.id,
+        rankName: r.rank_name || r.rankName || curRank.name,
+        reachedAt: r.reached_at || r.reachedAt || profileData?.updated_at || new Date().toISOString(),
+        rpAtTime: typeof (r.rp_at_time ?? r.rpAtTime) === 'number' ? (r.rp_at_time ?? r.rpAtTime) : totalRP
+      }))
+    : [
+        {
+          rankId: curRank.id,
+          rankName: curRank.name,
+          reachedAt: profileData?.updated_at || new Date().toISOString(),
+          rpAtTime: totalRP
+        }
+      ];
+
   const rawState = {
     version: 1,
     isCloud: true,
@@ -210,7 +244,7 @@ export function mapCloudDataToState(profileData, tasksData, user = null) {
     createdAt: profileData?.created_at || new Date().toISOString(),
     profile: {
       name: String(initialName).trim().slice(0, 36),
-      title: 'Penenun Fajar',
+      title: curRank.title || 'Penenun Fajar',
       bio: typeof profileData?.bio === 'string' ? profileData.bio : 'Menenun langkah kecil setiap hari menjadi petualangan bermakna.',
       outfit: profileData?.outfit || 'wanderer',
       hat: profileData?.hat || 'straw_hat',
@@ -229,14 +263,7 @@ export function mapCloudDataToState(profileData, tasksData, user = null) {
       ? tasksData.filter(t => t.isRPClaimed || t.is_rp_claimed).map(t => String(t.id))
       : [],
     rewardedPvPMatchIds: [],
-    rankHistory: [
-      {
-        rankId: 'epic',
-        rankName: 'Epic',
-        reachedAt: profileData?.updated_at || new Date().toISOString(),
-        rpAtTime: totalRP
-      }
-    ],
+    rankHistory: mappedRankHistory,
     rpHistory: [
       {
         date: getRelativeDateStr(0),
@@ -356,5 +383,81 @@ export function importBackupJSON(jsonString, customStorage = null) {
   const validated = validateAndSanitizeState(parsed);
   saveState(validated, customStorage);
   return validated;
+}
+
+/**
+ * Validasi format alamat email standar (RFC 5322 compatible)
+ * Menerima penyedia umum seperti Gmail, Outlook, Yahoo, iCloud, Proton, domain kustom, dll.
+ * Tidak mewajibkan domain tertentu (@dayloom.id tidak diwajibkan).
+ */
+export function isValidEmail(email) {
+  if (typeof email !== 'string') return false;
+  const trimmed = email.trim();
+  if (!trimmed || trimmed.length > 254) return false;
+  // Format standar: local-part@domain.tld dengan TLD minimal 2 karakter
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  return emailRegex.test(trimmed);
+}
+
+/**
+ * Menerjemahkan pesan error Supabase Auth ke Bahasa Indonesia yang ramah petualang.
+ * Memisahkan penanganan error rate-limit Supabase secara eksplisit dari validasi format email.
+ */
+export function formatAuthErrorMessage(err) {
+  if (!err) return 'Terjadi kesalahan sistem yang tidak diketahui.';
+  const msg = err.message || String(err);
+  const code = err.code || err.error_code || '';
+  const status = Number(err.status || (err.error && err.error.status) || 0);
+
+  // 1. Penanganan khusus batas frekuensi (Rate Limit) Supabase Auth
+  if (
+    status === 429 ||
+    /rate[_ -]?limit/i.test(msg) ||
+    /rate[_ -]?limit/i.test(code) ||
+    /over_email_send_rate_limit/i.test(msg) ||
+    /over_email_send_rate_limit/i.test(code) ||
+    /too many requests/i.test(msg) ||
+    /email.*rate.*limit/i.test(msg) ||
+    /security purposes.*once every/i.test(msg)
+  ) {
+    return 'Batas pengiriman email Supabase tercapai (rate limit). Harap tunggu beberapa saat sebelum mencoba mendaftar kembali.';
+  }
+
+  // 2. Kredensial masuk tidak cocok
+  if (/invalid login credentials/i.test(msg) || /invalid_grant/i.test(msg)) {
+    return 'Alamat email atau kata sandi tidak cocok. Silakan periksa kembali.';
+  }
+
+  // 3. Email sudah terdaftar
+  if (/user already registered/i.test(msg) || /already exists/i.test(msg)) {
+    return 'Alamat email ini sudah terdaftar. Silakan gunakan tab Masuk.';
+  }
+
+  // 4. Kata sandi terlalu pendek
+  if (/password should be at least 6 characters/i.test(msg) || /weak_password/i.test(msg)) {
+    return 'Kata sandi terlalu pendek. Gunakan minimal 6 karakter.';
+  }
+
+  // 5. Format email ditolak oleh server
+  if (/invalid email/i.test(msg) || /email address.*invalid/i.test(msg) || /invalid format/i.test(msg)) {
+    return 'Format alamat email tidak valid. Pastikan penulisan email sudah benar (contoh: nama@gmail.com).';
+  }
+
+  // 6. Email belum dikonfirmasi
+  if (/email not confirmed/i.test(msg)) {
+    return 'Alamat email belum dikonfirmasi. Silakan periksa kotak masuk atau spam email Anda.';
+  }
+
+  // 7. Pendaftaran baru dinonaktifkan di instance Supabase
+  if (/signup.*disabled/i.test(msg) || /signups not allowed/i.test(msg)) {
+    return 'Pendaftaran petualang baru saat ini sedang dinonaktifkan di server.';
+  }
+
+  // 8. Masalah koneksi jaringan
+  if (/network/i.test(msg) || /failed to fetch/i.test(msg) || /fetch failed/i.test(msg)) {
+    return 'Gagal terhubung ke server awan. Periksa koneksi internet Anda.';
+  }
+
+  return msg;
 }
 
