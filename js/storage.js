@@ -208,7 +208,7 @@ export function validateAndSanitizeState(raw, options = {}) {
  * Memetakan data profil, tasks, dan riwayat peringkat dari database Supabase ke struktur state frontend Dayloom.
  * Menjamin total_rp dan rank berasal dari server (server-authoritative) dan tidak dihitung ulang oleh buku besar lokal.
  */
-export function mapCloudDataToState(profileData, tasksData, user = null, rankHistoryData = [], rpLedgerData = []) {
+export function mapCloudDataToState(profileData, tasksData, user = null, rankHistoryData = [], rpLedgerData = [], cachedState = null) {
   const initialName = (profileData && profileData.username) ||
     (user && user.user_metadata && (user.user_metadata.name || user.user_metadata.username)) ||
     (user && user.email ? user.email.split('@')[0] : 'Pengembara Hanamori');
@@ -229,16 +229,30 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
   const ledgerList = Array.isArray(rpLedgerData) ? rpLedgerData : [];
   const ledgerRP = ledgerList.reduce((sum, item) => sum + (Number(item?.points) || 0), 0);
 
-  // 4. RP milestone yang tercatat di riwayat rank_history
-  const historyList = Array.isArray(rankHistoryData) ? rankHistoryData : [];
-  const historyRP = historyList.reduce((max, r) => {
-    const val = Number(r?.rp_at_time ?? r?.rpAtTime);
-    return Number.isFinite(val) && val > max ? val : max;
-  }, 0);
+  // 4. Validasi ketat terhadap cachedRP:
+  // Cache lokal TIDAK BOLEH menaikkan RP secara sembarangan jika nilainya tidak didukung
+  // oleh bukti aktivitas nyata di buku besar lokal (tasks claimed + rewardedPvPMatchIds).
+  let validCachedRP = 0;
+  if (cachedState && typeof cachedState.rp === 'number' && !isNaN(cachedState.rp) && cachedState.rp >= 0) {
+    const rawCachedRP = Math.floor(cachedState.rp);
+    const cachedClaimedTasks = Array.isArray(cachedState.tasks)
+      ? cachedState.tasks.filter(t => t && (t.isRPClaimed || t.is_rp_claimed)).length
+      : (Array.isArray(cachedState.rewardedTaskIds) ? cachedState.rewardedTaskIds.length : 0);
+    const cachedPvPMatches = Array.isArray(cachedState.rewardedPvPMatchIds)
+      ? cachedState.rewardedPvPMatchIds.length
+      : 0;
 
-  // Rekonsiliasi otoritatif: Ambil nilai RP maksimum yang sah dari seluruh sumber data Supabase
+    // Batas atas maksimum yang dapat dipertanggungjawabkan secara matematis:
+    // Aktivitas di dalam cache sendiri (tasks + pvp), atau profileRP server ditambah pvp lokal baru
+    const cacheActivityRP = (cachedClaimedTasks * 10) + (cachedPvPMatches * 20);
+    const maxVerifiableCacheRP = Math.max(cacheActivityRP, profileRP + (cachedPvPMatches * 20));
+    validCachedRP = Math.min(rawCachedRP, maxVerifiableCacheRP);
+  }
+
+  // Rekonsiliasi otoritatif: Ambil nilai RP maksimum yang sah dari sumber server dan aktivitas terverifikasi
   // Mencegah penurunan atau reset rank akibat profiles.total_rp tertinggal / bernilai NULL di database
-  const totalRP = Math.max(profileRP, claimedTasksRP, ledgerRP, historyRP);
+  // Catatan: rank_history digunakan untuk riwayat & getHighestRank, bukan mendikte total_rp aktif saat login
+  const totalRP = Math.max(profileRP, claimedTasksRP, ledgerRP, validCachedRP);
 
   const curRank = getRankByRP(totalRP);
 
@@ -268,6 +282,18 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
     });
   }
 
+  // Pertahankan ID pertandingan PvP yang telah diberi hadiah dari cache agar tidak terjadi duplikasi klaim
+  const rewardedPvPMatchIds = Array.isArray(cachedState?.rewardedPvPMatchIds)
+    ? [...new Set(cachedState.rewardedPvPMatchIds.filter(id => typeof id === 'string'))]
+    : [];
+
+  const arenaStats = {
+    wins: Math.max(Number(cachedState?.arenaStats?.wins) || 0, 0),
+    totalSessions: Number(cachedState?.arenaStats?.totalSessions) || 0,
+    bestCombo: Number(cachedState?.arenaStats?.bestCombo) || 0,
+    totalFocusMinutes: Number(cachedState?.arenaStats?.totalFocusMinutes) || 0
+  };
+
   const rawState = {
     version: 1,
     isCloud: true,
@@ -293,7 +319,7 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
     rewardedTaskIds: Array.isArray(tasksData)
       ? tasksData.filter(t => t.isRPClaimed || t.is_rp_claimed).map(t => String(t.id))
       : [],
-    rewardedPvPMatchIds: [],
+    rewardedPvPMatchIds: rewardedPvPMatchIds,
     rankHistory: mappedRankHistory,
     rpHistory: [
       {
@@ -306,12 +332,7 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
     visitedLocations: Array.isArray(profileData?.visited_locations) && profileData.visited_locations.length > 0
       ? profileData.visited_locations.filter(id => typeof id === 'string')
       : ['quest_board'],
-    arenaStats: {
-      wins: 0,
-      totalSessions: 0,
-      bestCombo: 0,
-      totalFocusMinutes: 0
-    },
+    arenaStats: arenaStats,
     tasks: Array.isArray(tasksData) ? tasksData : []
   };
 

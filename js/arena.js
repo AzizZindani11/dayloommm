@@ -26,10 +26,11 @@ const FOCUS_MANTRAS = [
 ];
 
 export class ArenaController {
-  constructor({ getState, onSaveState, onNotify }) {
+  constructor({ getState, onSaveState, onNotify, onAwardPvPWin }) {
     this.getState = getState;
     this.onSaveState = onSaveState;
     this.onNotify = onNotify;
+    this.onAwardPvPWin = onAwardPvPWin || null;
 
     this.selectedBossId = ARENA_BOSSES[0].id;
     this.selectedTaskId = '';
@@ -787,7 +788,11 @@ export class ArenaController {
               reason: `Kemenangan Local 1v1 PvP Arena (${result.winnerChar} vs ${result.loserChar})`
             });
             if (res.awarded) {
-              this.onSaveState();
+              if (this.onAwardPvPWin) {
+                this.onAwardPvPWin(res, result.matchId);
+              } else {
+                this.onSaveState();
+              }
               if (res.rankedUp) {
                 this.onNotify(`🎉 Kemenangan 1v1 PvP (+20 RP)! NAIK PERINGKAT ke ${res.newRank.name}!`);
               } else {

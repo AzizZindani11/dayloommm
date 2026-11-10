@@ -91,6 +91,7 @@ class DayloomApp {
     this.loadedCloudUserId = null;
     this.loadingCloudUserId = null;
     this.cloudLoadRequestId = 0;
+    this.lastSyncedRP = 0;
 
     // Timer Meditasi Kuil Tenun Waktu
     this.meditation = {
@@ -128,6 +129,7 @@ class DayloomApp {
     this.arena = new ArenaController({
       getState: () => this.state,
       onSaveState: () => this.persistAndRefresh(),
+      onAwardPvPWin: (rewardResult, matchId) => this.handlePvPWinReward(rewardResult, matchId),
       onNotify: (msg, type = 'info') => this.showToast(msg, type)
     });
     this.arena.init();
@@ -192,6 +194,7 @@ class DayloomApp {
     userState.isCloud = true;
     userState.cloudUserId = user.id;
     this.state = userState;
+    this.lastSyncedRP = userState.rp || 0;
     this.refreshAllUI();
   }
 
@@ -201,6 +204,7 @@ class DayloomApp {
    */
   switchToGuestState() {
     this.cloudLoadRequestId++;
+    this.lastSyncedRP = 0;
     this.state = loadState();
     this.applyTimeOfDayTheme(this.state.profile?.timeOfDay || 'pagi');
     this.refreshAllUI();
@@ -223,13 +227,16 @@ class DayloomApp {
       (this.currentUser?.email ? this.currentUser.email.split('@')[0] : 'Pengembara');
 
     let preloadedFromCache = false;
+    let cachedState = null;
     if (typeof localStorage !== 'undefined') {
       try {
         const cached = localStorage.getItem(`dayloom_user_${userId}`);
         if (cached) {
           const parsedCache = JSON.parse(cached);
           if (parsedCache && parsedCache.cloudUserId === userId) {
-            this.state = validateAndSanitizeState(parsedCache, { isCloud: true, cloudUserId: userId });
+            cachedState = validateAndSanitizeState(parsedCache, { isCloud: true, cloudUserId: userId });
+            this.state = cachedState;
+            this.lastSyncedRP = cachedState.rp || 0;
             preloadedFromCache = true;
             this.refreshAllUI();
           }
@@ -238,6 +245,7 @@ class DayloomApp {
     }
 
     if (!preloadedFromCache) {
+      this.lastSyncedRP = 0;
       const loadingState = createDefaultState();
       loadingState.isCloud = true;
       loadingState.cloudUserId = userId;
@@ -261,7 +269,7 @@ class DayloomApp {
         return;
       }
 
-      const mappedState = mapCloudDataToState(profileData, tasksData, this.currentUser, rankHistoryData, rpLedgerData);
+      const mappedState = mapCloudDataToState(profileData, tasksData, this.currentUser, rankHistoryData, rpLedgerData, cachedState);
 
       // Hitung pencapaian yang terbuka berdasarkan kondisi nyata misi & RP cloud
       mappedState.unlockedAchievements = evaluateAchievements(mappedState).map(a => a.id);
@@ -281,9 +289,14 @@ class DayloomApp {
 
       // Self-Healing: Jika total_rp di Supabase tertinggal atau NULL di database, sinkronkan nilai rekonsiliasi yang benar
       if (typeof profileData?.total_rp !== 'number' || profileData.total_rp < mappedState.rp) {
-        updateProfile(userId, { total_rp: mappedState.rp }).catch(err => {
-          console.warn('Dayloom: Gagal menyelaraskan total_rp profil di awan:', err);
-        });
+        if (mappedState.rp > (this.lastSyncedRP || 0)) {
+          this.lastSyncedRP = mappedState.rp;
+          updateProfile(userId, { total_rp: mappedState.rp }).catch(err => {
+            console.warn('Dayloom: Gagal menyelaraskan total_rp profil di awan:', err);
+          });
+        }
+      } else {
+        this.lastSyncedRP = Math.max(this.lastSyncedRP || 0, profileData.total_rp);
       }
 
       // Simpan ke cache user lokal (TIDAK menyentuh dayloom_save_v1)
@@ -320,6 +333,37 @@ class DayloomApp {
         this.isLoadingCloudData = false;
         this.loadingCloudUserId = null;
       }
+    }
+  }
+
+  /**
+   * Jalur resmi pemberian reward kemenangan PvP Dojo.
+   * Menyimpan progres RP dan rank_history ke Supabase secara langsung tanpa race condition.
+   */
+  async handlePvPWinReward(rewardResult, matchId) {
+    if (!rewardResult || !rewardResult.awarded) return;
+
+    this.saveActiveState();
+    this.refreshAllUI();
+
+    if (this.currentUser && typeof this.state.rp === 'number') {
+      const targetRP = this.state.rp;
+      if (targetRP > (this.lastSyncedRP || 0)) {
+        this.lastSyncedRP = targetRP;
+        try {
+          await updateProfile(this.currentUser.id, { total_rp: targetRP });
+          if (rewardResult.rankedUp && rewardResult.newRank) {
+            await recordRankHistory(this.currentUser.id, rewardResult.newRank, targetRP);
+          }
+        } catch (err) {
+          console.warn('Dayloom: Gagal menyinkronkan reward PvP Dojo ke awan:', err);
+        }
+      }
+    }
+
+    if (rewardResult.rankedUp && rewardResult.newRank) {
+      sound.playRankUp();
+      this.openRankUpModal(rewardResult.newRank);
     }
   }
 
@@ -863,6 +907,7 @@ class DayloomApp {
             updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => {});
           }
         }
+        this.lastSyncedRP = Math.max(this.lastSyncedRP || 0, this.state.rp);
 
         const newRank = getCurrentRank(this.state.rp);
         const rankedUp = newRank.index > prevRank.index;
