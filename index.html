@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DAYLOOM — Menenun Hari Menjadi Petualangan</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/world.css" />
+  <link rel="stylesheet" href="css/atmosphere.css" />
+  <link rel="stylesheet" href="css/arena-env.css" />
+</head>
+<body data-time-of-day="pagi" data-active-view="world">
+
+  <!-- =====================================================================
+       SISTEM ATMOSFER LATAR BELAKANG GLOBAL (BERLAKU DI SELURUH HALAMAN)
+       ===================================================================== -->
+  <div id="global-atmosphere-system" class="global-atmosphere-system" aria-hidden="true"></div>
+
+  <!-- =====================================================================
+       HEADER UTAMA & HUD STATUS PETUALANG
+       ===================================================================== -->
+  <header class="top-rpg-header">
+    <div class="header-inner">
+      <!-- Identitas Merek Dayloom -->
+      <div class="brand-identity">
+        <div class="brand-loom-crest" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="#E8A5B5" stroke="#FFE08A" stroke-width="2"/>
+            <polygon points="16,6 23,16 16,26 9,16" fill="#26364A"/>
+            <circle cx="16" cy="16" r="3" fill="#FFE08A"/>
+          </svg>
+        </div>
+        <div class="brand-title-group">
+          <h1>DAYLOOM</h1>
+          <small>Tenunan Kehidupan &amp; RPG Produktivitas</small>
+        </div>
+      </div>
+
+      <!-- Strip Status Karakter & Peringkat (Klik untuk menuju Profil atau Peringkat) -->
+      <div class="hud-status-strip" aria-label="Status Petualang" style="cursor: pointer;" title="Klik untuk membuka Profil">
+        <div class="hud-emblem-box" id="hud-rank-emblem" title="Buka Halaman Peringkat"></div>
+        <div class="hud-progress-info" title="Buka Halaman Profil">
+          <div class="hud-name-line">
+            <strong id="hud-adventurer-name">Pengembara Hanamori</strong>
+            <span class="hud-rank-label" id="hud-rank-title">Epic • Penenun Fajar</span>
+          </div>
+          <div class="hud-rp-bar-track">
+            <div class="hud-rp-bar-fill" id="hud-rp-bar-fill" style="width: 0%"></div>
+          </div>
+          <small class="hud-rp-sub" id="hud-rp-text">0 RP (50 RP menuju Legend)</small>
+        </div>
+        <div class="hud-score-badge" title="Skor Produktivitas (Terpisah dari RP)">
+          <small>Skor Kerja</small>
+          <strong id="hud-prod-score">0/100</strong>
+        </div>
+      </div>
+
+      <!-- Kontrol Suasana Waktu, Audio & Tombol Pintal Misi -->
+      <div class="header-controls">
+        <div class="time-switcher" role="group" aria-label="Suasana Waktu Dunia">
+          <button type="button" class="time-btn active" data-time-mode="pagi" title="Suasana Pagi Cerah">Pagi</button>
+          <button type="button" class="time-btn" data-time-mode="senja" title="Suasana Senja Keemasan">Senja</button>
+          <button type="button" class="time-btn" data-time-mode="malam" title="Suasana Malam Lentera">Malam</button>
+        </div>
+
+        <button type="button" class="btn-pixel btn-secondary btn-sm" id="btn-toggle-sound">
+          <span>Suara Aktif</span>
+        </button>
+
+        <button type="button" class="btn-pixel btn-secondary btn-sm" id="btn-auth-status" title="Status Akun Petualang">
+          <span id="auth-status-label">Mode Tamu</span>
+        </button>
+
+        <button type="button" class="btn-pixel btn-primary btn-sm js-open-new-quest">
+          + Pintal Misi Baru
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigasi Utama -->
+    <nav class="main-nav-bar" aria-label="Navigasi Utama Dayloom">
+      <div class="nav-inner">
+        <div class="nav-tabs-group">
+          <button type="button" class="nav-tab-btn active" data-nav-view="world">
+            Dunia Desa
+          </button>
+          <button type="button" class="nav-tab-btn" data-nav-view="quests">
+            Papan Misi
+          </button>
+          <button type="button" class="nav-tab-btn" data-nav-view="profile">
+            Profil
+          </button>
+          <button type="button" class="nav-tab-btn" data-nav-view="rank">
+            Peringkat
+          </button>
+          <button type="button" class="nav-tab-btn" data-nav-view="achievements">
+            Lencana &amp; Hadiah
+          </button>
+          <button type="button" class="nav-tab-btn" data-nav-view="stats">
+            Statistik
+          </button>
+          <button type="button" class="nav-tab-btn" data-nav-view="arena">
+            Arena Dojo
+          </button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- =====================================================================
+       AREA KERJA UTAMA
+       ===================================================================== -->
+  <main class="main-workspace-container">
+
+    <!-- 1. TAMPILAN DUNIA DESA HANAMORI (ADVANCED PARALLAX WORLD) -->
+    <section id="view-world" class="app-view-section">
+      <div class="parallax-world-wrapper">
+        <div class="parallax-stage" id="parallax-stage">
+
+          <!-- LAPIS 0: Langit, Matahari/Bulan & Awan Jauh (Depth 0.04) -->
+          <div class="parallax-layer layer-sky" data-parallax-depth="0.04">
+            <div class="celestial-body"></div>
+            <svg width="100%" height="100%" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMid slice">
+              <!-- Awan Pixel Halus -->
+              <g fill="#FFFDF8" opacity="0.65">
+                <rect x="140" y="68" width="110" height="18" rx="9" />
+                <rect x="165" y="56" width="65" height="16" rx="8" />
+                <rect x="620" y="48" width="140" height="20" rx="10" />
+                <rect x="650" y="34" width="80" height="18" rx="9" />
+                <rect x="1040" y="82" width="120" height="18" rx="9" />
+              </g>
+            </svg>
+          </div>
+
+          <!-- LAPIS 1: Pegunungan Suci Hanamori & Kabut Lembah (Depth 0.12) -->
+          <div class="parallax-layer layer-mountains" data-parallax-depth="0.12">
+            <svg width="100%" height="100%" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">
+              <!-- Gunung Jauh -->
+              <polygon points="0,370 220,175 450,370" fill="#8DA2B5" />
+              <polygon points="165,224 220,175 275,224 245,235 195,235" fill="#F5EBDD" />
+              <!-- Puncak Agung Fuji Hanamori -->
+              <polygon points="360,380 710,110 1060,380" fill="#778FA5" />
+              <polygon points="615,184 710,110 805,184 770,198 735,182 685,198 645,184" fill="#FFFDF8" />
+              <!-- Gunung Timur -->
+              <polygon points="910,380 1210,165 1480,380" fill="#8DA2B5" />
+              <polygon points="1150,210 1210,165 1270,210" fill="#F5EBDD" />
+              <!-- Kabut Lembah -->
+              <rect x="0" y="310" width="1440" height="75" fill="#F5EBDD" opacity="0.45" />
+            </svg>
+          </div>
+
+          <!-- LAPIS 2: Perbukitan Pinus & Siluet Pagoda Kuno (Depth 0.24) -->
+          <div class="parallax-layer layer-hills" data-parallax-depth="0.24">
+            <svg width="100%" height="100%" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">
+              <polygon points="-40,400 180,260 440,350 760,250 1080,340 1320,255 1500,400" fill="#63786D" />
+              <!-- Siluet Pagoda di Bukit Tengah -->
+              <g transform="translate(735, 178)" fill="#26364A">
+                <rect x="22" y="0" width="4" height="16" />
+                <polygon points="6,16 24,8 42,16" />
+                <rect x="14" y="16" width="20" height="10" />
+                <polygon points="2,26 24,18 46,26" />
+                <rect x="12" y="26" width="24" height="12" />
+                <polygon points="-2,38 24,28 50,38" />
+                <rect x="10" y="38" width="28" height="36" />
+              </g>
+              <polygon points="-20,415 310,310 640,390 980,300 1460,415" fill="#4E6359" />
+            </svg>
+          </div>
+
+          <!-- LAPIS 3: Desa Hanamori, Jembatan & Bangunan Interaktif (Depth 0.42) -->
+          <div class="parallax-layer layer-village" data-parallax-depth="0.42">
+            <svg width="100%" height="100%" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">
+              <!-- Tanah & Jalan Batu Desa -->
+              <rect x="0" y="375" width="1440" height="65" fill="#8C735B" />
+              <rect x="0" y="388" width="1440" height="26" fill="#C4B097" />
+              <!-- Jembatan Kayu Merah melintasi sungai -->
+              <path d="M510 388 Q600 364 690 388" stroke="#B84A39" stroke-width="10" fill="none" />
+              <rect x="530" y="368" width="6" height="22" fill="#8C2D19" />
+              <rect x="600" y="362" width="6" height="24" fill="#8C2D19" />
+              <rect x="665" y="368" width="6" height="22" fill="#8C2D19" />
+
+              <!-- Lentera Batu Desa Menyala -->
+              <g class="lantern-glow-node" transform="translate(340, 344)">
+                <rect x="6" y="18" width="8" height="22" fill="#7A756C" />
+                <rect x="4" y="8" width="12" height="10" fill="#FFE08A" stroke="#26364A" stroke-width="1.5" />
+                <polygon points="0,8 10,0 20,8" fill="#524E48" />
+                <circle cx="10" cy="13" r="16" fill="#FFE08A" opacity="0.3" />
+              </g>
+              <g class="lantern-glow-node" transform="translate(830, 344)">
+                <rect x="6" y="18" width="8" height="22" fill="#7A756C" />
+                <rect x="4" y="8" width="12" height="10" fill="#FFE08A" stroke="#26364A" stroke-width="1.5" />
+                <polygon points="0,8 10,0 20,8" fill="#524E48" />
+                <circle cx="10" cy="13" r="16" fill="#FFE08A" opacity="0.3" />
+              </g>
+              <g class="lantern-glow-node" transform="translate(1110, 344)">
+                <rect x="6" y="18" width="8" height="22" fill="#7A756C" />
+                <rect x="4" y="8" width="12" height="10" fill="#FFE08A" stroke="#26364A" stroke-width="1.5" />
+                <polygon points="0,8 10,0 20,8" fill="#524E48" />
+                <circle cx="10" cy="13" r="16" fill="#FFE08A" opacity="0.3" />
+              </g>
+            </svg>
+          </div>
+
+          <!-- ZONA INTERAKTIF BANGUNAN DESA & JALUR JALAN KARAKTER -->
+          <div class="village-interactive-zone" id="village-walk-area" title="Klik di sepanjang jalan untuk berjalan ke lokasi">
+
+            <!-- Bangunan 1: Kuil Tenun Waktu (x: 18%) -->
+            <button type="button" class="village-building-btn" data-building-id="loom_shrine" style="left: 18%;">
+              <span class="building-label-pill">Kuil Tenun Waktu</span>
+              <svg width="128" height="118" viewBox="0 0 128 118" fill="none" shape-rendering="crispEdges">
+                <!-- Gerbang Torii & Kuil -->
+                <path d="M12 24 Q64 12 116 24 L112 34 Q64 24 16 34 Z" fill="#C94A4A" stroke="#26364A" stroke-width="2"/>
+                <rect x="22" y="42" width="84" height="8" fill="#C94A4A" stroke="#26364A" stroke-width="2"/>
+                <rect x="30" y="30" width="10" height="86" fill="#C94A4A" stroke="#26364A" stroke-width="2"/>
+                <rect x="88" y="30" width="10" height="86" fill="#C94A4A" stroke="#26364A" stroke-width="2"/>
+                <!-- Lentera Gantung Kuil -->
+                <rect x="56" y="50" width="16" height="20" fill="#FFE08A" stroke="#26364A" stroke-width="2"/>
+                <rect x="60" y="55" width="8" height="10" fill="#E17055"/>
+              </svg>
+            </button>
+
+            <!-- Bangunan 2: Papan Misi Hanamori (x: 42%) -->
+            <button type="button" class="village-building-btn is-nearby" data-building-id="quest_board" style="left: 42%;">
+              <span class="building-label-pill">Papan Misi Hanamori</span>
+              <svg width="124" height="110" viewBox="0 0 124 110" fill="none" shape-rendering="crispEdges">
+                <!-- Atap Kayu Papan Misi -->
+                <polygon points="8,32 62,8 116,32" fill="#6E4F3E" stroke="#26364A" stroke-width="2"/>
+                <rect x="20" y="32" width="84" height="54" fill="#9B7866" stroke="#26364A" stroke-width="2"/>
+                <rect x="26" y="38" width="72" height="42" fill="#523A2B"/>
+                <!-- Kertas Gulungan Misi -->
+                <rect x="32" y="43" width="18" height="24" fill="#FFFDF8"/>
+                <rect x="35" y="47" width="12" height="3" fill="#C85A7C"/>
+                <rect x="55" y="45" width="18" height="26" fill="#FFF3D6"/>
+                <rect x="58" y="49" width="12" height="3" fill="#5C9EAD"/>
+                <rect x="78" y="43" width="16" height="22" fill="#FFFDF8"/>
+                <!-- Tiang Penyangga -->
+                <rect x="24" y="86" width="10" height="24" fill="#6E4F3E" stroke="#26364A" stroke-width="2"/>
+                <rect x="90" y="86" width="10" height="24" fill="#6E4F3E" stroke="#26364A" stroke-width="2"/>
+              </svg>
+            </button>
+
+            <!-- Bangunan 3: Kedai Teh Sakura / Galeri Lencana (x: 66%) -->
+            <button type="button" class="village-building-btn" data-building-id="tea_house" style="left: 66%;">
+              <span class="building-label-pill">Kedai Teh Sakura</span>
+              <svg width="146" height="122" viewBox="0 0 146 122" fill="none" shape-rendering="crispEdges">
+                <!-- Atap Tradisional Jepang -->
+                <polygon points="4,44 73,12 142,44" fill="#3B4F66" stroke="#26364A" stroke-width="2"/>
+                <rect x="18" y="44" width="110" height="76" fill="#F5EBDD" stroke="#26364A" stroke-width="2"/>
+                <!-- Tirai Noren Sakura -->
+                <rect x="26" y="48" width="28" height="24" fill="#C85A7C" stroke="#26364A" stroke-width="1.5"/>
+                <rect x="58" y="48" width="30" height="24" fill="#C85A7C" stroke="#26364A" stroke-width="1.5"/>
+                <rect x="92" y="48" width="28" height="24" fill="#C85A7C" stroke="#26364A" stroke-width="1.5"/>
+                <!-- Jendela Shoji Bercahaya Hangat -->
+                <rect x="30" y="78" width="36" height="38" fill="#FFE08A" stroke="#6E4F3E" stroke-width="2"/>
+                <line x1="48" y1="78" x2="48" y2="116" stroke="#6E4F3E" stroke-width="2"/>
+                <rect x="78" y="78" width="38" height="38" fill="#FFE08A" stroke="#6E4F3E" stroke-width="2"/>
+              </svg>
+            </button>
+
+            <!-- Bangunan 4: Dojo Benteng Awan / Arena (x: 86%) -->
+            <button type="button" class="village-building-btn" data-building-id="arena_dojo" style="left: 86%;">
+              <span class="building-label-pill">Dojo Benteng Awan</span>
+              <svg width="144" height="130" viewBox="0 0 144 130" fill="none" shape-rendering="crispEdges">
+                <!-- Atap Bertingkat Dojo -->
+                <polygon points="16,36 72,8 128,36" fill="#26364A" stroke="#FFE08A" stroke-width="2"/>
+                <rect x="32" y="36" width="80" height="18" fill="#6E4F3E" stroke="#26364A" stroke-width="2"/>
+                <polygon points="6,62 72,42 138,62" fill="#26364A" stroke="#FFE08A" stroke-width="2"/>
+                <rect x="20" y="62" width="104" height="66" fill="#F5EBDD" stroke="#26364A" stroke-width="2"/>
+                <!-- Pintu Gerbang Dojo & Lambang Pedang -->
+                <rect x="52" y="76" width="40" height="52" fill="#26364A" stroke="#D49A3D" stroke-width="2"/>
+                <circle cx="72" cy="52" r="7" fill="#FFE08A" stroke="#26364A" stroke-width="1.5"/>
+              </svg>
+            </button>
+
+            <!-- Kelopak Takdir Bercahaya (Bisa ditangkap dengan berjalan mendekatinya) -->
+            <div class="world-spirit-orb" id="world-spirit-orb" title="Kelopak Takdir — Berjalanlah mendekat untuk menangkapnya!">
+              <svg width="26" height="26" viewBox="0 0 26 26">
+                <circle cx="13" cy="13" r="11" fill="#FFE08A" opacity="0.45"/>
+                <polygon points="13,3 16,10 23,13 16,16 13,23 10,16 3,13 10,10" fill="#FFFDF8" stroke="#E8A5B5" stroke-width="1.5"/>
+              </svg>
+            </div>
+
+            <!-- Karakter Pemain di Dalam Dunia -->
+            <div class="world-character-actor" id="world-character-actor">
+              <span class="actor-nameplate">Petualangmu</span>
+              <div class="actor-sprite"></div>
+            </div>
+          </div>
+
+          <!-- LAPIS 4: Sungai Kawa & Tepian Batu (Depth 0.58) -->
+          <div class="parallax-layer layer-river" data-parallax-depth="0.58">
+            <svg width="100%" height="100%" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">
+              <!-- Air Sungai -->
+              <rect x="0" y="422" width="1440" height="98" fill="#5C829E" opacity="0.88" />
+              <rect x="0" y="422" width="1440" height="8" fill="#9B7866" />
+              <!-- Batu Pijakan Tepian -->
+              <ellipse cx="180" cy="426" rx="28" ry="7" fill="#7A756C" />
+              <ellipse cx="520" cy="428" rx="34" ry="8" fill="#655F58" />
+              <ellipse cx="960" cy="426" rx="30" ry="7" fill="#7A756C" />
+              <ellipse cx="1290" cy="427" rx="36" ry="8" fill="#655F58" />
+            </svg>
+          </div>
+
+          <!-- LAPIS 5: Pohon Sakura Depan & Dedaunan Berayun (Depth 0.85) -->
+          <div class="parallax-layer layer-foreground" data-parallax-depth="0.85">
+            <svg width="100%" height="100%" viewBox="0 0 1440 520" preserveAspectRatio="xMidYMid slice">
+              <!-- Pohon Sakura Kiri Depan -->
+              <g class="sakura-canopy-sway">
+                <path d="M-10,520 L25,210 L85,120 L55,220 L50,520 Z" fill="#4A3228" />
+                <circle cx="45" cy="95" r="78" fill="#E8A5B5" opacity="0.92" />
+                <circle cx="125" cy="70" r="64" fill="#F3C1CE" opacity="0.9" />
+                <circle cx="185" cy="45" r="52" fill="#E8A5B5" opacity="0.85" />
+              </g>
+              <!-- Dahan Sakura Kanan Atas -->
+              <g class="sakura-canopy-sway">
+                <circle cx="1380" cy="75" r="82" fill="#E8A5B5" opacity="0.9" />
+                <circle cx="1290" cy="48" r="62" fill="#F3C1CE" opacity="0.88" />
+              </g>
+              <!--Siluet Rumput Tepi Depan -->
+              <rect x="0" y="496" width="1440" height="30" fill="#26364A" opacity="0.35" />
+            </svg>
+          </div>
+
+          <!-- KANVAS PARTIKEL DINAMIS (KELOPAK SAKURA, KUNANG-KUNANG, PANTULAN SUNGAI) -->
+          <canvas class="world-particle-canvas" id="world-particle-canvas"></canvas>
+
+          <!-- Kartu Info Lokasi Interaktif (Kiri Atas Panggung) -->
+          <div class="world-overlay-card" id="world-location-hud">
+            <div class="loc-hud-badge">Daftar Tanggung Jawab Harian</div>
+            <h3 class="loc-hud-title">Papan Misi Hanamori</h3>
+            <p class="loc-hud-desc">Papan kayu tua di tengah alun-alun desa. Seluruh gulungan tugas, tenggat waktu, dan daftar periksa terpampang rapi di sini.</p>
+            <button type="button" class="btn-pixel btn-primary loc-hud-btn" id="hud-interact-btn">Buka Papan Misi</button>
+          </div>
+
+          <!-- Petunjuk Gerak Karakter -->
+          <div class="world-controls-hint">
+            Gerakkan mouse untuk paralaks • Klik jalan / tombol <strong>[A] [D] / Panah</strong> untuk berjalan • Klik bangunan untuk masuk
+          </div>
+        </div>
+      </div>
+
+      <!-- Baris Panel Ringkasan di Bawah Panggung Dunia -->
+      <div class="world-bottom-panels">
+        <div class="rpg-panel">
+          <div class="panel-header-row">
+            <div>
+              <span class="rpg-tag">Gulungan Prioritas</span>
+              <h3 class="panel-title">Misi Aktif yang Menanti Ditenun</h3>
+            </div>
+            <button type="button" class="btn-pixel btn-secondary btn-sm" data-nav-view="quests">Lihat Semua Misi</button>
+          </div>
+          <div class="world-quest-mini-list" id="world-active-quests-preview"></div>
+        </div>
+
+        <div class="rpg-panel loom-story-card">
+          <span class="rpg-tag">Filosofi Dayloom</span>
+          <h3 class="panel-title">Tenunan Hari &amp; Benang Takdir</h3>
+          <p>
+            Di Desa Hanamori, setiap tanggung jawab kecil adalah sehelai benang. Saat kau menuntaskan daftar periksa dan menjaga tenggat waktu, kau sedang menenun kisah perjalanan dan membangun karaktermu menuju puncak <strong>Mythic Immortal</strong>.
+          </p>
+          <div class="loom-quick-stats">
+            <div class="loom-stat-box">
+              <strong>+10 RP</strong>
+              <small>Per Misi Selesai</small>
+            </div>
+            <div class="loom-stat-box">
+              <strong>6 Rank</strong>
+              <small>Epic s/d Immortal</small>
+            </div>
+            <div class="loom-stat-box">
+              <strong>0–100</strong>
+              <small>Skor Produktivitas</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. TAMPILAN PAPAN MISI (CORE QUEST TRACKER) -->
+    <section id="view-quests" class="app-view-section hidden">
+      <div class="section-heading-bar">
+        <div>
+          <span class="rpg-tag">Manajemen Tugas &amp; Tanggung Jawab</span>
+          <h2>Papan Misi Desa Hanamori</h2>
+          <p>Kelola misi harian, daftar periksa wajib (checklist), kategori, dan tenggat waktu. Misi hanya dapat diselesaikan bila seluruh syarat checklist telah dicentang.</p>
+        </div>
+        <button type="button" class="btn-pixel btn-primary js-open-new-quest">
+          + Pintal Misi Baru
+        </button>
+      </div>
+
+      <div class="rpg-panel quest-controls-bar">
+        <div class="filter-tabs-row" id="quest-filter-counters"></div>
+
+        <div class="search-and-dropdowns-row">
+          <input type="search" id="quest-search-input" class="rpg-input" placeholder="Cari judul atau deskripsi misi..." aria-label="Cari misi" />
+
+          <select id="filter-category-select" class="rpg-input" aria-label="Filter Kategori">
+            <option value="all">Semua Kategori</option>
+            <option value="akademik">Akademik</option>
+            <option value="pekerjaan">Pekerjaan</option>
+            <option value="pribadi">Pribadi</option>
+            <option value="kesehatan">Kesehatan</option>
+            <option value="kreativitas">Kreativitas</option>
+            <option value="lainnya">Lainnya</option>
+          </select>
+
+          <select id="filter-priority-select" class="rpg-input" aria-label="Filter Prioritas">
+            <option value="all">Semua Prioritas</option>
+            <option value="mendesak">Mendesak</option>
+            <option value="tinggi">Tinggi</option>
+            <option value="sedang">Sedang</option>
+            <option value="rendah">Rendah</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="quest-cards-grid" id="quest-cards-container"></div>
+    </section>
+
+    <!-- 3. TAMPILAN PROFIL PEMAIN (IDENTITAS, AVATAR, RINGKASAN PERINGKAT, ETALASE KARAKTER) -->
+    <section id="view-profile" class="app-view-section hidden">
+      <div class="section-heading-bar">
+        <div>
+          <span class="rpg-tag">Identitas Pengembara</span>
+          <h2>Profil Pengembara</h2>
+          <p>Wajah, nama, dan jejak kebanggaanmu di Desa Hanamori — foto profil, peringkat tertinggi, lencana pilihan, dan potret resmi sang petualang.</p>
+        </div>
+      </div>
+      <div id="profile-view-content"></div>
+    </section>
+
+    <!-- 3B. TAMPILAN PERINGKAT (6 PERINGKAT RESMI, RP, PROGRES & HADIAH) -->
+    <section id="view-rank" class="app-view-section hidden">
+      <div class="section-heading-bar">
+        <div>
+          <span class="rpg-tag">Sistem Peringkat Resmi</span>
+          <h2>Tangga Kemuliaan</h2>
+          <p>Saksikan perjalananmu meniti enam peringkat resmi: Epic, Legend, Mythic, Mythic Honor, Mythic Glory, hingga Mythic Immortal.</p>
+        </div>
+      </div>
+      <div id="rank-view-content"></div>
+    </section>
+
+    <!-- 4. TAMPILAN LENCANA PENCAPAIAN & HADIAH -->
+    <section id="view-achievements" class="app-view-section hidden">
+      <div class="section-heading-bar">
+        <div>
+          <span class="rpg-tag">Koleksi Relik &amp; Penghargaan</span>
+          <h2>Galeri Pencapaian Pengembara</h2>
+          <p>Bukti ketekunan yang terukir dari pencapaian nyata. Setiap lencana membuka hadiah kosmetik dan kehormatan desa.</p>
+        </div>
+      </div>
+      <div id="achievements-view-content"></div>
+    </section>
+
+    <!-- 5. TAMPILAN STATISTIK & SKOR PRODUKTIVITAS -->
+    <section id="view-stats" class="app-view-section hidden">
+      <div class="section-heading-bar">
+        <div>
+          <span class="rpg-tag">Analitik Kinerja Nyata</span>
+          <h2>Catatan Statistik &amp; Skor Produktivitas</h2>
+          <p>Seluruh metrik dihitung langsung dari riwayat misimu. Skor Produktivitas (0–100) terpisah sepenuhnya dari Rank Points (RP).</p>
+        </div>
+      </div>
+      <div id="stats-view-content"></div>
+    </section>
+
+    <!-- 6. TAMPILAN ARENA DOJO BENTENG AWAN -->
+    <section id="view-arena" class="app-view-section hidden">
+      <div class="section-heading-bar">
+        <div>
+          <span class="rpg-tag">Ujian Konsentrasi &amp; Tantangan Ketangkasan</span>
+          <h2>Arena Dojo Benteng Awan</h2>
+          <p>Salurkan fokus misimu dalam pertarungan interaktif melawan Monster Penundaan atau siapkan ruang latihan bersama.</p>
+        </div>
+      </div>
+      <div id="arena-view-content"></div>
+    </section>
+
+  </main>
+
+  <!-- =====================================================================
+       FOOTER & PENGELOLAAN CADANGAN DATA (BACKUP EXPORT/IMPORT)
+       ===================================================================== -->
+  <footer class="app-footer">
+    <div>
+      <strong>DAYLOOM</strong> — Penyimpanan Lokal Aman dengan Validasi &amp; Buku Besar Anti-Duplikat RP.
+    </div>
+    <div class="backup-actions-group">
+      <button type="button" class="btn-pixel btn-secondary btn-sm" id="btn-export-backup">
+        Unduh Cadangan Data (.JSON)
+      </button>
+      <label class="btn-pixel btn-secondary btn-sm" style="cursor:pointer;">
+        Pulihkan Cadangan (.JSON)
+        <input type="file" id="input-import-backup" accept="application/json" class="hidden" />
+      </label>
+      <button type="button" class="btn-pixel btn-danger btn-sm" id="btn-reset-data">
+        Atur Ulang Data
+      </button>
+    </div>
+  </footer>
+
+  <!-- =====================================================================
+       MODAL 1: BUAT / UBAH GULUNGAN MISI
+       ===================================================================== -->
+  <div class="modal-overlay hidden" id="quest-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="quest-modal-title">
+    <div class="rpg-panel modal-card">
+      <div class="panel-header-row">
+        <h3 class="panel-title" id="quest-modal-title">Pintal Misi Baru</h3>
+        <button type="button" class="btn-icon" id="btn-close-quest-modal" aria-label="Tutup">&times;</button>
+      </div>
+
+      <form id="quest-form" class="profile-form">
+        <div class="form-group">
+          <label for="quest-input-title">Judul Misi *</label>
+          <input type="text" id="quest-input-title" class="rpg-input" placeholder="Contoh: Menyelesaikan Laporan Bab 3" required maxlength="100" />
+        </div>
+
+        <div class="form-group">
+          <label for="quest-input-desc">Deskripsi &amp; Catatan Misi</label>
+          <textarea id="quest-input-desc" class="rpg-input" rows="2" placeholder="Rincian langkah atau tujuan yang ingin dicapai..."></textarea>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="quest-input-category">Kategori</label>
+            <select id="quest-input-category" class="rpg-input">
+              <option value="akademik">Akademik</option>
+              <option value="pekerjaan">Pekerjaan</option>
+              <option value="pribadi">Pribadi</option>
+              <option value="kesehatan">Kesehatan</option>
+              <option value="kreativitas">Kreativitas</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="quest-input-priority">Prioritas</label>
+            <select id="quest-input-priority" class="rpg-input">
+              <option value="rendah">Rendah</option>
+              <option value="sedang" selected>Sedang</option>
+              <option value="tinggi">Tinggi</option>
+              <option value="mendesak">Mendesak</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="quest-input-deadline">Tenggat Waktu (Deadline)</label>
+            <input type="date" id="quest-input-deadline" class="rpg-input" required />
+          </div>
+
+          <div class="form-group">
+            <label for="quest-input-status">Status Awal</label>
+            <select id="quest-input-status" class="rpg-input">
+              <option value="tersedia">Tersedia</option>
+              <option value="berjalan">Sedang Dikerjakan</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Pembuat Daftar Periksa Wajib (Checklist) -->
+        <div class="form-group">
+          <label for="input-new-checklist">Daftar Periksa Wajib (Checklist — Harus selesai sebelum misi tuntas)</label>
+          <div class="modal-checklist-builder">
+            <input type="text" id="input-new-checklist" class="rpg-input" placeholder="Ketik tahapan lalu klik + Tambah..." />
+            <button type="button" class="btn-pixel btn-secondary" id="btn-add-checklist-item">+ Tambah</button>
+          </div>
+          <ul class="draft-checklist-list" id="modal-checklist-preview"></ul>
+        </div>
+
+        <div class="modal-footer-btns">
+          <button type="button" class="btn-pixel btn-secondary" id="btn-cancel-quest-modal">Batal</button>
+          <button type="submit" class="btn-pixel btn-primary">Simpan Gulungan Misi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 2: MEDITASI FOKUS KUIL TENUN WAKTU
+       ===================================================================== -->
+  <div class="modal-overlay hidden" id="shrine-modal-overlay" role="dialog" aria-modal="true">
+    <div class="rpg-panel modal-card shrine-modal-card">
+      <span class="rpg-tag">Kuil Tenun Waktu</span>
+      <h3 class="panel-title">Ruang Meditasi &amp; Dupa Fokus</h3>
+      <p>Tenangkan pikiranmu sejenak di bawah naungan pohon sakura suci sebelum menuntaskan tanggung jawab besar.</p>
+      <div class="shrine-timer-circle" id="shrine-timer-display">05:00</div>
+      <div class="modal-footer-btns" style="justify-content:center;">
+        <button type="button" class="btn-pixel btn-primary" id="btn-shrine-toggle">Nyalakan Dupa Fokus (Mulai)</button>
+        <button type="button" class="btn-pixel btn-secondary" id="btn-shrine-reset">Atur Ulang</button>
+        <button type="button" class="btn-pixel btn-danger" id="btn-close-shrine-modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 3: PERAYAAN KENAIKAN PERINGKAT (RANK UP)
+       ===================================================================== -->
+  <div class="modal-overlay hidden" id="rankup-modal-overlay" role="dialog" aria-modal="true">
+    <div class="rpg-panel modal-card rankup-card" id="rankup-modal-body"></div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 4: AKUN PETUALANG (AUTENTIKASI SUPABASE CLOUD)
+       ===================================================================== -->
+  <div class="modal-overlay hidden" id="auth-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <div class="rpg-panel modal-card auth-modal-card">
+      <div class="panel-header-row">
+        <div>
+          <span class="rpg-tag" id="auth-modal-tag">Koneksi Awan Hanamori</span>
+          <h3 class="panel-title" id="auth-modal-title">Akun Petualang</h3>
+        </div>
+        <button type="button" class="btn-icon" id="btn-close-auth-modal" aria-label="Tutup">&times;</button>
+      </div>
+
+      <!-- State 1: Pengguna Belum Login (Form Masuk / Daftar) -->
+      <div id="auth-guest-view">
+        <div class="auth-tabs-row" role="tablist">
+          <button type="button" class="auth-tab-btn active" id="tab-auth-login" role="tab" aria-selected="true">Masuk</button>
+          <button type="button" class="auth-tab-btn" id="tab-auth-register" role="tab" aria-selected="false">Daftar Baru</button>
+        </div>
+
+        <form id="auth-form" class="profile-form">
+          <div class="form-group hidden" id="auth-name-group">
+            <label for="auth-input-name">Nama Petualang *</label>
+            <input type="text" id="auth-input-name" class="rpg-input" placeholder="Contoh: Pendekar Sakura" maxlength="30" />
+            <small class="auth-field-hint">Nama yang akan tercatat di gerbang Desa Hanamori.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="auth-input-email">Alamat Email *</label>
+            <input type="email" id="auth-input-email" class="rpg-input" placeholder="petualang@dayloom.id" required autocomplete="email" />
+          </div>
+
+          <div class="form-group">
+            <label for="auth-input-password">Kata Sandi *</label>
+            <input type="password" id="auth-input-password" class="rpg-input" placeholder="Minimal 6 karakter" required minlength="6" autocomplete="current-password" />
+          </div>
+
+          <div class="auth-notice-box">
+            <small>Data Mode Tamu lokal di browser Anda tetap utuh dan tidak akan tertimpa atau terhapus.</small>
+          </div>
+
+          <div class="auth-error-banner hidden" id="auth-error-banner" role="alert"></div>
+
+          <div class="modal-footer-btns">
+            <button type="button" class="btn-pixel btn-secondary" id="btn-cancel-auth-modal">Batal</button>
+            <button type="submit" class="btn-pixel btn-primary" id="btn-submit-auth">Masuk ke Desa</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- State 2: Pengguna Sudah Login (Tampilan Info Akun) -->
+      <div id="auth-user-view" class="hidden">
+        <div class="auth-user-info-box">
+          <div class="auth-user-avatar-badge" id="auth-user-avatar-badge">👤</div>
+          <div class="auth-user-text-meta">
+            <strong id="auth-user-display-name">Pengembara Hanamori</strong>
+            <small id="auth-user-display-email">user@email.com</small>
+            <span class="auth-badge-online">Terkoneksi ke Awan</span>
+          </div>
+        </div>
+
+        <p class="auth-connected-desc">
+          Misi dan progres RP Anda tersimpan aman di server Supabase. LocalStorage lokal tetap terjaga.
+        </p>
+
+        <div class="modal-footer-btns">
+          <button type="button" class="btn-pixel btn-danger" id="btn-auth-logout">Keluar (Mode Tamu)</button>
+          <button type="button" class="btn-pixel btn-secondary" id="btn-close-auth-user">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WADAH NOTIFIKASI TOAST -->
+  <div class="toast-stack" id="toast-container" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
+

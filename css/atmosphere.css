@@ -1,0 +1,394 @@
+/**
+ * DAYLOOM — Sistem Atmosfer Latar Belakang Global (Global Background Atmosphere System)
+ * Menciptakan lingkungan dunia RPG Jepang yang hidup di belakang seluruh halaman
+ * dengan tiga identitas waktu berbeda: Pagi, Senja, dan Malam.
+ */
+
+:root {
+  /* Variabel Transisi Atmosfer Global */
+  --atmo-transition: 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Mode PAGI (Default) */
+  --atmo-sky-top: #C8DCE8;
+  --atmo-sky-mid: #E6EFEF;
+  --atmo-sky-bottom: #F5EBDD;
+  --atmo-mist-color: rgba(255, 253, 248, 0.65);
+  --atmo-Center-veil: rgba(245, 235, 221, 0.76);
+  --atmo-mountain-far: #9BB0C1;
+  --atmo-mountain-near: #7E96A8;
+  --atmo-village-silhouette: #6B5B52;
+  --atmo-roof-highlight: #A88B78;
+  --atmo-branch-wood: #5E4337;
+  --atmo-blossom-main: #E8A5B5;
+  --atmo-blossom-light: #F7D4DD;
+  --atmo-lantern-glow: rgba(255, 224, 138, 0.15);
+  --atmo-lantern-core: #FFF3D1;
+  --atmo-ray-color: rgba(255, 244, 214, 0.42);
+}
+
+/* Mode SENJA — Sunset Atmosphere */
+body[data-time-of-day="senja"] {
+  --atmo-sky-top: #A87C8E;
+  --atmo-sky-mid: #EBB096;
+  --atmo-sky-bottom: #F2DFCE;
+  --atmo-mist-color: rgba(246, 214, 189, 0.58);
+  --atmo-Center-veil: rgba(242, 223, 206, 0.76);
+  --atmo-mountain-far: #8E6476;
+  --atmo-mountain-near: #704B59;
+  --atmo-village-silhouette: #4D322C;
+  --atmo-roof-highlight: #D48C6A;
+  --atmo-branch-wood: #422923;
+  --atmo-blossom-main: #E5989B;
+  --atmo-blossom-light: #FFD6BA;
+  --atmo-lantern-glow: rgba(255, 196, 92, 0.72);
+  --atmo-lantern-core: #FFE08A;
+  --atmo-ray-color: rgba(255, 198, 138, 0.38);
+}
+
+/* Mode MALAM — Night Atmosphere (Terbaca, Muted Blue-Gray & Lavender, Kontras Lentera Hangat) */
+body[data-time-of-day="malam"] {
+  --atmo-sky-top: #56698A;
+  --atmo-sky-mid: #A3B1C6;
+  --atmo-sky-bottom: #E2E8F0;
+  --atmo-mist-color: rgba(212, 222, 236, 0.52);
+  --atmo-Center-veil: rgba(226, 232, 241, 0.78);
+  --atmo-mountain-far: #374B63;
+  --atmo-mountain-near: #2B3C50;
+  --atmo-village-silhouette: #1F2D3D;
+  --atmo-roof-highlight: #56708C;
+  --atmo-branch-wood: #1D2836;
+  --atmo-blossom-main: #B892AC;
+  --atmo-blossom-light: #DEC5D6;
+  --atmo-lantern-glow: rgba(255, 214, 102, 0.92);
+  --atmo-lantern-core: #FFE89E;
+  --atmo-ray-color: rgba(186, 218, 242, 0.22);
+}
+
+/* Pastikan kontainer konten utama berada di atas latar belakang atmosfer global */
+.top-rpg-header {
+  position: sticky;
+  z-index: 100;
+}
+
+.main-workspace-container,
+.app-footer {
+  position: relative;
+  z-index: 10;
+}
+
+/* =========================================================================
+ * WADAH UTAMA SISTEM ATMOSFER GLOBAL
+ * ========================================================================= */
+.global-atmosphere-system {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  user-select: none;
+  background: linear-gradient(
+    180deg,
+    var(--atmo-sky-top) 0%,
+    var(--atmo-sky-mid) 46%,
+    var(--atmo-sky-bottom) 100%
+  );
+  transition: background var(--atmo-transition), opacity 0.5s ease;
+}
+
+/* Tekstur Halus Kertas Washi Jepang */
+.atmo-washi-texture {
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image:
+    radial-gradient(rgba(155, 120, 102, 0.12) 1px, transparent 0),
+    radial-gradient(rgba(38, 54, 74, 0.08) 1px, transparent 0);
+  background-size: 28px 28px;
+  background-position: 0 0, 14px 14px;
+}
+
+/* Lapisan Paralaks Global */
+.atmo-layer {
+  position: absolute;
+  inset: -36px;
+  will-change: transform;
+  transition: opacity var(--atmo-transition), filter var(--atmo-transition);
+}
+
+.atmo-layer svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* =========================================================================
+ * IDENTITAS SPESIFIK WAKTU: ELEMEN LANGIT PAGI, SENJA & MALAM
+ * ========================================================================= */
+.atmo-mode-group {
+  opacity: 0;
+  transition: opacity var(--atmo-transition), transform var(--atmo-transition);
+}
+
+body[data-time-of-day="pagi"] .atmo-only-pagi,
+body:not([data-time-of-day]) .atmo-only-pagi {
+  opacity: 1;
+}
+
+body[data-time-of-day="senja"] .atmo-only-senja {
+  opacity: 1;
+}
+
+body[data-time-of-day="malam"] .atmo-only-malam {
+  opacity: 1;
+}
+
+/* Berkas Cahaya Atmosfer (Sinar Pagi, Sinar Senja, Cahaya Bulan) */
+.atmo-light-beams {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity var(--atmo-transition), background var(--atmo-transition);
+}
+
+body[data-time-of-day="pagi"] .atmo-light-beams,
+body:not([data-time-of-day]) .atmo-light-beams {
+  background:
+    radial-gradient(circle at 86% 12%, rgba(255, 246, 209, 0.65) 0%, rgba(255, 246, 209, 0) 48%),
+    linear-gradient(125deg, rgba(255, 250, 230, 0) 35%, rgba(255, 245, 214, 0.32) 52%, rgba(255, 250, 230, 0) 70%);
+}
+
+body[data-time-of-day="senja"] .atmo-light-beams {
+  background:
+    radial-gradient(circle at 18% 28%, rgba(255, 186, 120, 0.55) 0%, rgba(232, 130, 116, 0.18) 42%, transparent 68%),
+    linear-gradient(65deg, rgba(255, 176, 107, 0.28) 0%, rgba(232, 165, 181, 0.18) 48%, transparent 78%);
+}
+
+body[data-time-of-day="malam"] .atmo-light-beams {
+  background:
+    radial-gradient(circle at 16% 14%, rgba(196, 224, 245, 0.36) 0%, rgba(168, 185, 200, 0.08) 45%, transparent 70%),
+    radial-gradient(circle at 8% 82%, rgba(255, 214, 112, 0.16) 0%, transparent 35%),
+    radial-gradient(circle at 92% 80%, rgba(255, 214, 112, 0.16) 0%, transparent 35%);
+}
+
+/* =========================================================================
+ * WARNA SVG DINAMIS MENGIKUTI VARIABEL WAKTU
+ * ========================================================================= */
+.atmo-svg-mountain-far {
+  fill: var(--atmo-mountain-far);
+  transition: fill var(--atmo-transition);
+}
+
+.atmo-svg-mountain-near {
+  fill: var(--atmo-mountain-near);
+  transition: fill var(--atmo-transition);
+}
+
+.atmo-svg-village {
+  fill: var(--atmo-village-silhouette);
+  transition: fill var(--atmo-transition);
+}
+
+.atmo-svg-roof-trim {
+  stroke: var(--atmo-roof-highlight);
+  transition: stroke var(--atmo-transition);
+}
+
+.atmo-svg-branch {
+  fill: var(--atmo-branch-wood);
+  transition: fill var(--atmo-transition);
+}
+
+.atmo-svg-blossom {
+  fill: var(--atmo-blossom-main);
+  transition: fill var(--atmo-transition);
+}
+
+.atmo-svg-blossom-alt {
+  fill: var(--atmo-blossom-light);
+  transition: fill var(--atmo-transition);
+}
+
+.atmo-svg-lantern-halo {
+  fill: var(--atmo-lantern-glow);
+  transition: fill var(--atmo-transition);
+}
+
+.atmo-svg-lantern-core {
+  fill: var(--atmo-lantern-core);
+  transition: fill var(--atmo-transition);
+}
+
+/* Animasi Halus Dahan Sakura, Awan, Bintang & Lentera Pinggiran */
+.atmo-sway-left {
+  transform-origin: 0% 0%;
+  animation: atmoBranchSwayLeft 9s ease-in-out infinite alternate;
+}
+
+.atmo-sway-right {
+  transform-origin: 100% 0%;
+  animation: atmoBranchSwayRight 10s ease-in-out infinite alternate;
+}
+
+@keyframes atmoBranchSwayLeft {
+  0% { transform: rotate(-0.8deg) translateY(0px); }
+  100% { transform: rotate(1.1deg) translateY(3px); }
+}
+
+@keyframes atmoBranchSwayRight {
+  0% { transform: rotate(0.9deg) translateY(2px); }
+  100% { transform: rotate(-1.0deg) translateY(-2px); }
+}
+
+.atmo-cloud-drift {
+  animation: atmoCloudDrift 28s ease-in-out infinite alternate;
+}
+
+.atmo-cloud-drift-slow {
+  animation: atmoCloudDrift 38s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes atmoCloudDrift {
+  0% { transform: translateX(-18px); }
+  100% { transform: translateX(18px); }
+}
+
+.atmo-lantern-pulse {
+  animation: atmoLanternBreath 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes atmoLanternBreath {
+  0% { opacity: 0.72; }
+  100% { opacity: 1; }
+}
+
+.atmo-star-twinkle {
+  animation: atmoStarPulse 4.2s ease-in-out infinite alternate;
+}
+
+@keyframes atmoStarPulse {
+  0% { opacity: 0.35; }
+  100% { opacity: 0.92; }
+}
+
+/* =========================================================================
+ * SELUBUNG KETERBACAAN TENGAH (CENTRAL READABILITY VEIL)
+ * Memastikan area tengah tempat kartu, teks, grafik, dan misi selalu bersih
+ * sementara ilustrasi lingkungan membingkai sisi luar layar.
+ * ========================================================================= */
+.atmo-readability-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 64% 76% at 50% 54%,
+    var(--atmo-Center-veil) 0%,
+    rgba(245, 235, 221, 0.32) 68%,
+    rgba(245, 235, 221, 0.04) 100%
+  );
+  transition: background var(--atmo-transition), opacity 0.45s ease;
+}
+
+body[data-time-of-day="senja"] .atmo-readability-veil {
+  background: radial-gradient(
+    ellipse 64% 76% at 50% 54%,
+    var(--atmo-Center-veil) 0%,
+    rgba(242, 223, 206, 0.34) 68%,
+    rgba(242, 223, 206, 0.05) 100%
+  );
+}
+
+body[data-time-of-day="malam"] .atmo-readability-veil {
+  background: radial-gradient(
+    ellipse 64% 76% at 50% 54%,
+    var(--atmo-Center-veil) 0%,
+    rgba(220, 228, 238, 0.38) 68%,
+    rgba(38, 54, 74, 0.08) 100%
+  );
+}
+
+/* Kanvas Partikel Atmosfer Global */
+.global-atmosphere-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+/* =========================================================================
+ * PENYESUAIAN HALUS PER HALAMAN (PAGE-SPECIFIC ATMOSPHERE TUNING)
+ * Semua halaman berada di dunia yang sama dengan intensitas yang serasi:
+ * - Statistik: lebih tenang agar grafik & angka sangat jelas.
+ * - Papan Misi: menjaga keterbacaan teks tugas yang kuat.
+ * - Arena Dojo: pencahayaan atmosfer sedikit lebih dramatis.
+ * - Dunia Desa: menampilkan detail lingkungan secara penuh.
+ * ========================================================================= */
+body[data-active-view="stats"] .atmo-layer-midground,
+body[data-active-view="stats"] .atmo-layer-foreground {
+  opacity: 0.48;
+}
+
+body[data-active-view="stats"] .atmo-readability-veil {
+  opacity: 1;
+}
+
+body[data-active-view="stats"] .global-atmosphere-canvas {
+  opacity: 0.5;
+}
+
+body[data-active-view="quests"] .atmo-layer-midground,
+body[data-active-view="quests"] .atmo-layer-foreground {
+  opacity: 0.68;
+}
+
+body[data-active-view="profile"] .atmo-layer-midground,
+body[data-active-view="rank"] .atmo-layer-midground,
+body[data-active-view="achievements"] .atmo-layer-midground {
+  opacity: 0.78;
+}
+
+body[data-active-view="arena"] .atmo-layer-midground,
+body[data-active-view="arena"] .atmo-layer-foreground {
+  opacity: 0.92;
+  filter: contrast(1.05);
+}
+
+body[data-active-view="arena"] .atmo-light-beams {
+  opacity: 1;
+}
+
+/* =========================================================================
+ * RESPONSIVITAS & AKSESIBILITAS (REDUCED MOTION & MOBILE)
+ * ========================================================================= */
+@media (max-width: 960px) {
+  .atmo-layer {
+    inset: -16px;
+  }
+
+  .atmo-layer-foreground {
+    opacity: 0.55;
+  }
+
+  .atmo-readability-veil {
+    background: radial-gradient(
+      ellipse 82% 84% at 50% 52%,
+      var(--atmo-Center-veil) 15%,
+      rgba(245, 235, 221, 0.48) 78%,
+      transparent 100%
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atmo-sway-left,
+  .atmo-sway-right,
+  .atmo-cloud-drift,
+  .atmo-cloud-drift-slow,
+  .atmo-lantern-pulse,
+  .atmo-star-twinkle {
+    animation: none !important;
+  }
+}
+

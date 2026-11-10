@@ -1,0 +1,1454 @@
+/**
+ * DAYLOOM — Visual & Presentasi Seksi "LOCAL PvP ARENA" di Arena Dojo
+ * Mengikuti bahasa ilustrasi orisinal Dayloom (Dunia Desa) & kedalaman atmosfer Hollow Knight.
+ */
+
+/* =========================================================================
+ * BAGIAN BARU: LOCAL PvP ARENA ENTRY SECTION & DESTINATION ARENA
+ * ========================================================================= */
+.local-pvp-section {
+  margin-top: 2rem;
+  border-radius: 14px;
+  border: 2.5px solid var(--wood-brown);
+  background: rgba(253, 251, 247, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(18, 14, 28, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.local-pvp-section:hover {
+  box-shadow: 0 12px 36px rgba(18, 14, 28, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+/* Banner Ilustrasi Megah PvP Arena */
+.pvp-banner-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 380px;
+  overflow: hidden;
+  background: #1F2433;
+  border-bottom: 2px solid var(--wood-brown);
+}
+
+.pvp-banner-img,
+.pvp-banner-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.local-pvp-section:hover .pvp-banner-img,
+.local-pvp-section:hover .pvp-banner-svg {
+  transform: scale(1.03);
+}
+
+/* Overlay gradien halus pada banner agar teks tag terbaca */
+.pvp-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20, 24, 38, 0.2) 0%, rgba(20, 24, 38, 0.1) 50%, rgba(20, 24, 38, 0.75) 100%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+}
+
+.pvp-banner-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pvp-badge-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(38, 54, 74, 0.88);
+  color: #FFE08A;
+  border: 1.5px solid #FFE08A;
+  padding: 0.35rem 0.85rem;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  backdrop-filter: blur(4px);
+}
+
+.pvp-badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(217, 107, 132, 0.9);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0.35rem 0.8rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  backdrop-filter: blur(4px);
+}
+
+.pvp-banner-caption-bar {
+  color: #FFFFFF;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.pvp-banner-caption-bar .pvp-arena-callout {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #FFE08A;
+  margin-bottom: 0.2rem;
+}
+
+.pvp-banner-caption-bar h3 {
+  font-family: 'Cinzel', 'Trajan Pro', 'Georgia', serif;
+  font-size: 1.65rem;
+  margin: 0;
+  color: #FFFFFF;
+  letter-spacing: 0.04em;
+}
+
+/* Konten & Pengantar Kartu PvP */
+.pvp-content-body {
+  padding: 1.4rem 1.6rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.pvp-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.pvp-title-group h4 {
+  font-family: 'Cinzel', 'Trajan Pro', 'Georgia', serif;
+  font-size: 1.35rem;
+  margin: 0 0 0.4rem;
+  color: var(--midnight-navy);
+  letter-spacing: 0.03em;
+}
+
+.pvp-title-group p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 650px;
+}
+
+/* Fitur & Kartu Peringatan Preview */
+.pvp-preview-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+.pvp-feature-item {
+  background: var(--cream-bg);
+  border: 1.5px solid rgba(155, 120, 102, 0.4);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.pvp-feature-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--midnight-navy);
+  color: #FFE08A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pvp-feature-text strong {
+  display: block;
+  font-size: 0.86rem;
+  color: var(--midnight-navy);
+  margin-bottom: 0.2rem;
+}
+
+.pvp-feature-text small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Bar Aksi Masuk Arena PvP */
+.pvp-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.6rem;
+  border-top: 1.5px solid rgba(155, 120, 102, 0.25);
+  flex-wrap: wrap;
+}
+
+.pvp-status-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--wood-dark);
+}
+
+.pvp-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #D96B84;
+  box-shadow: 0 0 6px #D96B84;
+}
+
+.btn-enter-pvp {
+  background: linear-gradient(180deg, #D96B84 0%, #B84762 100%);
+  color: #FFFFFF;
+  border: 2px solid var(--wood-brown);
+  box-shadow: var(--shadow-pixel);
+  padding: 0.65rem 1.4rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 0.1s, filter 0.2s;
+}
+
+.btn-enter-pvp:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.btn-enter-pvp:active {
+  transform: translateY(1px);
+}
+
+/* =========================================================================
+ * FLOATING ARENA VIEWPORT (80% CONTENT AREA, PRESERVING GLOBAL BACKGROUND)
+ * ========================================================================= */
+.pvp-destination-modal {
+  position: fixed;
+  inset: 0;
+  /* Latar belakang semi-transparan sehingga atmosfer Dayloom (Pagi/Senja/Malam) tetap terlihat */
+  background: rgba(18, 22, 34, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow: hidden;
+  animation: pvpFadeIn 0.25s ease;
+}
+
+@keyframes pvpFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Frame Floating Window 80% dari area konten dengan aspek rasio 16:9 tetap */
+.pvp-floating-frame {
+  position: relative;
+  width: min(84vw, 1280px);
+  max-height: 86vh;
+  aspect-ratio: 16 / 9;
+  background: #181E2B;
+  border: 3.5px solid var(--wood-brown);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 224, 138, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header Tipis Terintegrasi di Atas Frame */
+.pvp-frame-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(180deg, rgba(16, 20, 32, 0.85) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.pvp-frame-header > * {
+  pointer-events: auto;
+}
+
+.pvp-arena-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.pvp-brand-tag {
+  background: #FFE08A;
+  color: #26364A;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pvp-arena-brand h2 {
+  font-family: 'Cinzel', 'Trajan Pro', 'Georgia', serif;
+  color: #FFFFFF;
+  font-size: 1.25rem;
+  margin: 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.04em;
+}
+
+.pvp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.pvp-char-quick-switch {
+  display: inline-flex;
+  background: rgba(20, 24, 38, 0.85);
+  border: 1.5px solid var(--wood-brown);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.btn-pvp-char-pill {
+  background: transparent;
+  color: #D8C8B8;
+  border: none;
+  border-radius: 4px;
+  padding: 0.28rem 0.72rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-pvp-char-pill.active {
+  background: #FFE08A;
+  color: #26364A;
+}
+
+/* =========================================================================
+ * KARUSEL PEMILIHAN KARAKTER PLAYABLE DI PROFIL PENDEKAR
+ * ========================================================================= */
+.arena-character-carousel {
+  margin-top: 0.85rem;
+  margin-bottom: 0.85rem;
+  padding: 0.85rem;
+  background: rgba(245, 235, 221, 0.65);
+  border: 1.5px solid rgba(155, 120, 102, 0.45);
+  border-radius: 8px;
+}
+
+.char-carousel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.char-carousel-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--midnight-navy);
+}
+
+.char-carousel-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-char-slide {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  border: 1.5px solid var(--wood-brown);
+  background: var(--cream-bg);
+  color: var(--midnight-navy);
+  font-size: 0.72rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-char-slide:hover {
+  background: #FFE08A;
+}
+
+.char-carousel-indicator {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--wood-dark);
+}
+
+.char-carousel-track {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.char-carousel-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 2px solid rgba(155, 120, 102, 0.4);
+  background: #FFFDF9;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.char-carousel-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--wood-brown);
+}
+
+.char-carousel-card.active {
+  border-color: #D96B84;
+  background: linear-gradient(135deg, #FFFDF9 0%, #FDF2F5 100%);
+  box-shadow: 0 4px 12px rgba(217, 107, 132, 0.18);
+}
+
+.char-card-sprite {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 6px;
+  background: rgba(38, 54, 74, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.char-card-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.char-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.char-card-name-row strong {
+  font-size: 0.86rem;
+  color: var(--midnight-navy);
+}
+
+.char-selected-pill {
+  background: #D96B84;
+  color: #FFFFFF;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 0.08rem 0.38rem;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+
+.char-card-weapon {
+  font-size: 0.72rem;
+  color: var(--wood-dark);
+  font-weight: 600;
+}
+
+.char-card-kit {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.char-combat-identity-bar {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(155, 120, 102, 0.4);
+  font-size: 0.74rem;
+  color: var(--midnight-navy);
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.fighter-player-sub {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.btn-exit-pvp {
+  background: rgba(38, 54, 74, 0.85);
+  color: #F5EBDD;
+  border: 1.5px solid var(--wood-brown);
+  border-radius: 6px;
+  padding: 0.4rem 0.95rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(6px);
+}
+
+.btn-exit-pvp:hover {
+  background: #942636;
+  color: #FFFFFF;
+  border-color: #FFE08A;
+}
+
+.btn-open-controls {
+  background: rgba(38, 54, 74, 0.85);
+  color: #FFE08A;
+  border: 1.5px solid var(--wood-brown);
+  border-radius: 6px;
+  padding: 0.4rem 0.85rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(6px);
+}
+
+.btn-open-controls:hover {
+  background: #2E4C63;
+  color: #FFFFFF;
+  border-color: #FFE08A;
+  box-shadow: 0 0 10px rgba(255, 224, 138, 0.35);
+}
+
+.btn-pvp-mode-pill {
+  background: rgba(26, 34, 46, 0.75);
+  color: #CBD5E1;
+  border: 1.5px solid rgba(155, 120, 102, 0.4);
+  border-radius: 6px;
+  padding: 0.32rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-pvp-mode-pill.active {
+  background: #FFE08A;
+  color: #1E293B;
+  border-color: #E5B84B;
+  box-shadow: 0 0 8px rgba(255, 224, 138, 0.4);
+}
+
+/* Controls & Device Settings Modal */
+.controls-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(14, 19, 28, 0.82);
+  backdrop-filter: blur(8px);
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.controls-settings-modal {
+  width: min(840px, 96vw);
+  max-height: 90vh;
+  background: #FFFDF9;
+  border: 3px solid var(--wood-brown);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalPopIn 0.22s ease-out;
+}
+
+@keyframes modalPopIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  background: #FDF4E7;
+  border-bottom: 2px solid var(--wood-brown);
+}
+
+.controls-header-title h3 {
+  margin: 0.2rem 0 0 0;
+  font-size: 1.15rem;
+  color: var(--midnight-navy);
+  font-family: 'Cinzel', Georgia, serif;
+}
+
+.btn-close-controls {
+  width: 32px;
+  height: 32px;
+  background: var(--cream-bg);
+  border: 1.5px solid var(--wood-brown);
+  border-radius: 6px;
+  color: var(--midnight-navy);
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-close-controls:hover {
+  background: #942636;
+  color: #FFFFFF;
+}
+
+.controls-body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.controls-device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.device-card {
+  background: #FFFFFF;
+  border: 2px solid rgba(155, 120, 102, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.device-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.player-pill {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.15rem 0.55rem;
+  border-radius: 99px;
+  width: fit-content;
+}
+
+.p1-pill { background: #2DD4BF; color: #0F172A; }
+.p2-pill { background: #EC4899; color: #FFFFFF; }
+
+.device-dropdown {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--wood-brown);
+  background: var(--cream-bg);
+  color: var(--midnight-navy);
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.controller-visual-tester {
+  background: #141824;
+  color: #F5EBDD;
+  border-radius: 8px;
+  border: 2px solid #26364A;
+  padding: 0.85rem 1rem;
+}
+
+.tester-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tester-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #FFE08A;
+  text-transform: uppercase;
+}
+
+.tester-hint {
+  font-size: 0.72rem;
+  color: #94A3B8;
+}
+
+.no-gamepad-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.6rem 0.8rem;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 6px;
+}
+
+.alert-icon { font-size: 1.5rem; }
+
+.no-gamepad-alert strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #E2E8F0;
+}
+
+.no-gamepad-alert p {
+  margin: 0.15rem 0 0 0;
+  font-size: 0.74rem;
+  color: #94A3B8;
+}
+
+.gamepad-tester-card {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.pad-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.pad-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.xbox-badge { background: #107C10; color: #FFFFFF; }
+.ps-badge { background: #003791; color: #FFFFFF; }
+.generic-badge { background: #475569; color: #FFFFFF; }
+
+.pad-stick-meter {
+  font-size: 0.74rem;
+  color: #CBD5E1;
+}
+
+.pad-stick-meter code {
+  background: #0F172A;
+  color: #38BDF8;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.pad-pressed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.pressed-label {
+  font-size: 0.72rem;
+  color: #94A3B8;
+}
+
+.btn-pressed-pill {
+  background: #FFE08A;
+  color: #1E293B;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  animation: pulseButton 0.2s ease-out;
+}
+
+@keyframes pulseButton {
+  from { transform: scale(1.15); }
+  to { transform: scale(1); }
+}
+
+.none-pressed-text {
+  font-size: 0.72rem;
+  color: #64748B;
+  font-style: italic;
+}
+
+.mappings-tables-container {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.mapping-column h4 {
+  margin: 0 0 0.45rem 0;
+  font-size: 0.86rem;
+  color: var(--midnight-navy);
+  border-bottom: 2px solid var(--wood-brown);
+  padding-bottom: 0.25rem;
+}
+
+.mapping-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mapping-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.55rem;
+  background: #FDF9F2;
+  border: 1px solid rgba(155, 120, 102, 0.3);
+  border-radius: 6px;
+}
+
+.action-name {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--midnight-navy);
+}
+
+.btn-bind-key {
+  min-width: 90px;
+  padding: 0.25rem 0.5rem;
+  background: #FFFFFF;
+  border: 1.5px solid var(--wood-brown);
+  border-radius: 5px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--midnight-navy);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.btn-bind-key:hover:not(:disabled) {
+  background: #FFE08A;
+  border-color: #D97706;
+}
+
+.btn-bind-key.remap-active {
+  background: #DC2626;
+  color: #FFFFFF;
+  border-color: #991B1B;
+  animation: blinkRemap 0.6s infinite alternate;
+}
+
+@keyframes blinkRemap {
+  from { opacity: 0.8; }
+  to { opacity: 1; }
+}
+
+.controls-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: #FDF4E7;
+  border-top: 2px solid var(--wood-brown);
+}
+
+/* Canvas Layar Game Interaktif 2D */
+.pvp-canvas-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #141824;
+}
+
+#pvp-arena-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  cursor: crosshair;
+}
+
+/* Responsivitas Layar Kecil */
+@media (max-width: 900px) {
+  .pvp-floating-frame {
+    width: 96vw;
+    aspect-ratio: auto;
+    height: 80vh;
+  }
+}
+
+/* Responsivitas Layar Kecil */
+@media (max-width: 900px) {
+  .pvp-banner-stage {
+    aspect-ratio: 16 / 10;
+  }
+  .pvp-header-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  .arena-para-layer {
+    transition: none !important;
+    transform: none !important;
+  }
+  .arena-particle {
+    animation: none !important;
+    display: none !important;
+  }
+  .pvp-banner-img {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+
+/* =========================================================================
+ * CHARACTER SELECT SCREEN 1V1 (OVERLAY INSIDE FLOATING FRAME)
+ * ========================================================================= */
+.pvp-character-select-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: radial-gradient(circle at center, rgba(27, 42, 61, 0.95) 0%, rgba(16, 20, 32, 0.98) 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 4.2rem 2rem 1.5rem 2rem;
+  color: #F5EBDD;
+  backdrop-filter: blur(6px);
+  animation: selectFadeIn 0.22s ease-out;
+}
+
+@keyframes selectFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.pvp-select-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.pvp-select-header h3 {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-size: 1.65rem;
+  color: #FFE08A;
+  margin: 0.15rem 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.08em;
+}
+
+.pvp-select-header p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #CBD5E1;
+}
+
+.pvp-select-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1.25rem;
+  align-items: center;
+  max-width: 1040px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.player-select-panel {
+  background: rgba(20, 24, 38, 0.85);
+  border: 2px solid var(--wood-brown);
+  border-radius: 12px;
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+
+.player-select-panel.p1-side {
+  border-left: 5px solid #38BDF8;
+}
+
+.player-select-panel.p2-side {
+  border-right: 5px solid #F43F5E;
+}
+
+.panel-player-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.player-tag {
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.p1-tag { background: #0284C7; color: #FFFFFF; }
+.p2-tag { background: #E11D48; color: #FFFFFF; }
+
+.player-device-tag {
+  font-size: 0.72rem;
+  color: #94A3B8;
+  background: rgba(0,0,0,0.35);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.select-card-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.char-pick-btn {
+  background: rgba(30, 41, 59, 0.75);
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 0.5rem;
+  color: #E2E8F0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.16s ease;
+}
+
+.char-pick-btn:hover {
+  background: rgba(51, 65, 85, 0.85);
+  border-color: #FFE08A;
+  transform: translateY(-2px);
+}
+
+.char-pick-btn.selected {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #38BDF8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+}
+
+.p2-side .char-pick-btn.selected {
+  background: rgba(244, 63, 94, 0.3);
+  border-color: #FB7185;
+  box-shadow: 0 0 12px rgba(251, 113, 133, 0.45);
+}
+
+.char-pick-btn .pick-thumb {
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.char-pick-btn .pick-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.player-preview-display {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: rgba(15, 23, 42, 0.65);
+  border-radius: 8px;
+  padding: 0.65rem;
+}
+
+.preview-sprite-stage {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+}
+
+.preview-kit-info {
+  flex: 1;
+  font-size: 0.74rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: #CBD5E1;
+}
+
+.preview-kit-info strong {
+  color: #FFE08A;
+}
+
+.btn-ready-toggle {
+  width: 100%;
+  padding: 0.6rem;
+  background: #334155;
+  color: #CBD5E1;
+  border: 1.5px solid #475569;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn-ready-toggle.is-ready {
+  background: #10B981;
+  color: #FFFFFF;
+  border-color: #059669;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.55);
+}
+
+.pvp-vs-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.vs-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #B91C1C;
+  border: 3px solid #FFE08A;
+  color: #FFFFFF;
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 18px rgba(185, 28, 28, 0.8);
+  animation: vsPulse 1.8s infinite alternate ease-in-out;
+}
+
+@keyframes vsPulse {
+  from { transform: scale(0.96); }
+  to { transform: scale(1.06); }
+}
+
+.pvp-select-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-start-1v1-match {
+  padding: 0.7rem 2rem;
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: #1E293B;
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 1rem;
+  border: 2px solid #FDE68A;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
+}
+
+.btn-start-1v1-match:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+  box-shadow: none;
+}
+
+.btn-start-1v1-match:not(:disabled):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.6);
+}
+
+.btn-switch-pve-mode {
+  background: rgba(30, 41, 59, 0.75);
+  color: #CBD5E1;
+  border: 1.5px solid #475569;
+  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-switch-pve-mode:hover {
+  background: #334155;
+  color: #FFE08A;
+  border-color: #FFE08A;
+}
+
+
+/* =========================================================
+   DAYLOOM — Match Result Screen (Victory / Defeat)
+   ========================================================= */
+.pvp-match-result-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.94) 0%, rgba(8, 12, 22, 0.98) 100%);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  color: #F5EBDD;
+  animation: resultPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes resultPopIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.match-result-modal {
+  background: rgba(22, 29, 48, 0.96);
+  border: 2.5px solid var(--wood-brown, #8B5A2B);
+  border-radius: 14px;
+  padding: 1.5rem 2rem;
+  max-width: 680px;
+  width: 100%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+  text-align: center;
+}
+
+.result-header {
+  margin-bottom: 0.85rem;
+}
+
+.result-title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 2.35rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  margin: 0.2rem 0;
+}
+
+.result-title.victory {
+  color: #FBBF24;
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.7), 0 0 45px rgba(16, 185, 129, 0.5);
+}
+
+.result-title.defeat {
+  color: #F87171;
+  text-shadow: 0 0 20px rgba(248, 113, 113, 0.6);
+}
+
+.result-sub {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #CBD5E1;
+}
+
+.match-fighters-summary {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin: 1.15rem 0;
+}
+
+.fighter-result-card {
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid #334155;
+  border-radius: 10px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.fighter-result-card.card-winner {
+  border-color: #F59E0B;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.fighter-result-card.card-loser {
+  border-color: #475569;
+  opacity: 0.85;
+}
+
+.card-player-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94A3B8;
+}
+
+.card-sprite-wrap {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-char-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #F1F5F9;
+}
+
+.badge-outcome {
+  font-size: 0.76rem;
+  font-weight: 900;
+  padding: 0.2rem 0.75rem;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.badge-outcome.win {
+  background: #10B981;
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.badge-outcome.loss {
+  background: #64748B;
+  color: #F1F5F9;
+}
+
+.card-rp-tag {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #FDE68A;
+}
+
+.rp-reward-banner {
+  padding: 0.6rem 1.15rem;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  margin-bottom: 1.15rem;
+  display: inline-block;
+}
+
+.rp-reward-banner.win {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1.5px solid #F59E0B;
+  color: #FDE68A;
+}
+
+.rp-reward-banner.loss {
+  background: rgba(100, 116, 139, 0.15);
+  border: 1.5px solid #64748B;
+  color: #CBD5E1;
+}
+
+.match-result-actions {
+  display: flex;
+  gap: 0.85rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-match-rematch {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 0.88rem;
+  padding: 0.65rem 1.75rem;
+  border: 2px solid #34D399;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
+
+.btn-match-rematch:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+  filter: brightness(1.1);
+}
+
+.btn-match-char-select {
+  background: rgba(30, 41, 59, 0.9);
+  color: #E2E8F0;
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 0.65rem 1.5rem;
+  border: 1.5px solid #475569;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.18s ease;
+}
+
+.btn-match-char-select:hover {
+  background: #334155;
+  color: #FFE08A;
+  border-color: #FFE08A;
+  transform: translateY(-2px);
+}

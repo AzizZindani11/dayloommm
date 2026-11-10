@@ -1,0 +1,415 @@
+/**
+ * DAYLOOM — Gaya Dunia Paralaks Desa Hanamori, Siklus Waktu & Elemen Interaktif
+ */
+
+.parallax-world-wrapper {
+  position: relative;
+  border: 3px solid var(--wood-brown);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(38, 54, 74, 0.14);
+  margin-bottom: 1.35rem;
+  background: #DFECEF;
+}
+
+.parallax-stage {
+  position: relative;
+  width: 100%;
+  height: 510px;
+  overflow: hidden;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* =========================================================================
+ * TRANSISI LANGIT BERDASARKAN WAKTU (PAGI, SENJA, MALAM)
+ * ========================================================================= */
+.parallax-layer {
+  position: absolute;
+  inset: -32px;
+  pointer-events: none;
+  will-change: transform;
+  transition: filter 0.6s ease;
+}
+
+.layer-sky {
+  inset: -40px;
+  background: linear-gradient(180deg, #A8B9C8 0%, #DFECEF 52%, #F5EBDD 100%);
+  transition: background 0.8s ease;
+}
+
+body[data-time-of-day="senja"] .layer-sky {
+  background: linear-gradient(180deg, #524364 0%, #C86D7C 48%, #F4B98C 85%, #F5EBDD 100%);
+}
+
+body[data-time-of-day="malam"] .layer-sky {
+  background: linear-gradient(180deg, #16202E 0%, #26364A 55%, #3B4F66 100%);
+}
+
+/* Matahari / Bulan & Sinar Atmosfer */
+.celestial-body {
+  position: absolute;
+  top: 56px;
+  right: 16%;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFFDF5 0%, #FFE08A 65%, rgba(255, 224, 138, 0) 100%);
+  box-shadow: 0 0 50px rgba(255, 224, 138, 0.85);
+  transition: all 0.8s ease;
+}
+
+body[data-time-of-day="senja"] .celestial-body {
+  top: 135px;
+  background: radial-gradient(circle, #FFF3B0 0%, #E17055 70%, rgba(225, 112, 85, 0) 100%);
+  box-shadow: 0 0 65px rgba(225, 112, 85, 0.9);
+}
+
+body[data-time-of-day="malam"] .celestial-body {
+  top: 64px;
+  background: radial-gradient(circle, #FFFDF9 0%, #A8E0EB 65%, rgba(168, 224, 235, 0) 100%);
+  box-shadow: 0 0 45px rgba(168, 224, 235, 0.75);
+}
+
+/* Redupkan gunung & desa saat malam sementara lentera menyala terang */
+body[data-time-of-day="malam"] .layer-mountains,
+body[data-time-of-day="malam"] .layer-hills {
+  filter: brightness(0.62) saturate(0.8);
+}
+
+body[data-time-of-day="senja"] .layer-mountains,
+body[data-time-of-day="senja"] .layer-hills {
+  filter: sepia(0.22) brightness(0.9);
+}
+
+/* =========================================================================
+ * BANGUNAN DESA INTERAKTIF (KUIL, PAPAN MISI, KEDAI TEH, DOJO)
+ * ========================================================================= */
+.village-interactive-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.village-building-btn {
+  position: absolute;
+  bottom: 98px;
+  transform: translateX(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.village-building-btn:hover,
+.village-building-btn.is-nearby {
+  transform: translateX(-50%) translateY(-5px);
+  filter: drop-shadow(0 0 12px rgba(255, 224, 138, 0.95));
+}
+
+.building-label-pill {
+  background: rgba(38, 54, 74, 0.92);
+  color: #FFFDF8;
+  border: 1.5px solid var(--gold-accent);
+  border-radius: 99px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-bottom: 6px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.village-building-btn.is-nearby .building-label-pill {
+  background: var(--sakura-deep);
+  border-color: var(--gold-light);
+}
+
+/* Pendar Cahaya Lentera Desa */
+.lantern-glow-node {
+  animation: lanternPulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes lanternPulse {
+  0% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* Ayunan Lembut Dahan Sakura */
+.sakura-canopy-sway {
+  transform-origin: top center;
+  animation: canopyBreeze 6s ease-in-out infinite alternate;
+}
+
+@keyframes canopyBreeze {
+  0% { transform: rotate(-1.2deg); }
+  100% { transform: rotate(1.4deg); }
+}
+
+/* =========================================================================
+ * AKTOR KARAKTER & KELOPAK TAKDIR DI JALUR DESA
+ * ========================================================================= */
+.world-character-actor {
+  position: absolute;
+  bottom: 72px;
+  left: 42%;
+  transform: translateX(-50%);
+  z-index: 18;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: bottom 0.15s ease;
+}
+
+.world-character-actor.is-walking .actor-sprite {
+  animation: walkBounce 0.32s ease-in-out infinite alternate;
+}
+
+@keyframes walkBounce {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-6px); }
+}
+
+.actor-nameplate {
+  background: rgba(38, 54, 74, 0.88);
+  color: var(--gold-light);
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: -4px;
+  border: 1px solid var(--gold-accent);
+  white-space: nowrap;
+}
+
+/* Spirit Orb / Kelopak Takdir Bercahaya */
+.world-spirit-orb {
+  position: absolute;
+  bottom: 96px;
+  left: 26%;
+  transform: translateX(-50%);
+  z-index: 16;
+  width: 26px;
+  height: 26px;
+  pointer-events: none;
+  animation: floatOrb 2.2s ease-in-out infinite alternate;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.world-spirit-orb.collected {
+  opacity: 0;
+  transform: translateX(-50%) scale(1.8);
+}
+
+@keyframes floatOrb {
+  0% { transform: translateX(-50%) translateY(0); }
+  100% { transform: translateX(-50%) translateY(-10px); }
+}
+
+/* Kanvas Partikel (Sakura, Kunang-kunang, Riak Air) */
+.world-particle-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* =========================================================================
+ * HUD LOKASI DI DALAM PANGGUNG DUNIA & PANEL BAWAH DUNIA
+ * ========================================================================= */
+.world-overlay-card {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 24;
+  max-width: 340px;
+  background: rgba(255, 253, 248, 0.93);
+  backdrop-filter: blur(6px);
+  border: 2px solid var(--wood-brown);
+  border-radius: 10px;
+  padding: 0.9rem 1.05rem;
+  box-shadow: 0 6px 18px rgba(38, 54, 74, 0.14);
+}
+
+.loc-hud-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--sakura-deep);
+}
+
+.loc-hud-title {
+  font-size: 1.08rem;
+  color: var(--midnight-navy);
+  margin: 0.1rem 0 0.3rem;
+}
+
+.loc-hud-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.65rem;
+}
+
+.world-controls-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  z-index: 24;
+  background: rgba(38, 54, 74, 0.85);
+  color: var(--cream-bg);
+  padding: 0.3rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.74rem;
+  border: 1px solid rgba(255, 224, 138, 0.5);
+  pointer-events: none;
+}
+
+/* Baris Panel Bawah Dunia */
+.world-bottom-panels {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.2rem;
+}
+
+.world-quest-mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.world-quest-mini-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--cream-bg);
+  border: 1.5px solid rgba(155, 120, 102, 0.45);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+}
+
+.world-quest-mini-card.is-overdue {
+  border-color: var(--crimson-warn);
+  background: #FFF5F5;
+}
+
+.mini-cat-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--wood-dark);
+}
+
+.mini-card-main h4 {
+  font-size: 0.92rem;
+  color: var(--midnight-navy);
+}
+
+.mini-card-main small {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.loom-story-card p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.loom-quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.loom-stat-box {
+  background: var(--cream-bg);
+  border-radius: 8px;
+  padding: 0.6rem;
+  text-align: center;
+}
+
+.loom-stat-box strong {
+  display: block;
+  font-size: 1.15rem;
+  color: var(--midnight-navy);
+}
+
+.loom-stat-box small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Modal Kenaikan Rank & Kuil Meditasi */
+.rankup-card,
+.shrine-modal-card {
+  text-align: center;
+}
+
+.rankup-emblem-showcase {
+  margin: 0.5rem auto 1rem;
+}
+
+.rankup-title {
+  font-size: 1.8rem;
+  color: var(--midnight-navy);
+}
+
+.rankup-subtitle {
+  color: var(--sakura-deep);
+  margin-bottom: 0.6rem;
+}
+
+.rankup-lore {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.rankup-perk-box {
+  background: var(--cream-bg);
+  border: 1.5px solid var(--gold-accent);
+  padding: 0.7rem;
+  border-radius: 8px;
+  margin-bottom: 1.2rem;
+  font-size: 0.86rem;
+}
+
+.shrine-timer-circle {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 4px solid var(--sakura-pink);
+  background: var(--midnight-navy);
+  color: var(--gold-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  font-weight: 900;
+  margin: 1rem auto;
+  box-shadow: 0 0 25px rgba(232, 165, 181, 0.5);
+}
+
+@media (max-width: 960px) {
+  .parallax-stage {
+    height: 430px;
+  }
+  .world-bottom-panels {
+    grid-template-columns: 1fr;
+  }
+  .world-overlay-card {
+    max-width: 260px;
+    padding: 0.65rem;
+  }
+}
+
