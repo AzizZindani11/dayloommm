@@ -620,3 +620,32 @@ export async function fetchRPLedger(userId) {
     return [];
   }
 }
+
+/**
+ * Mencatat entri reward ke tabel rp_ledger di Supabase (untuk kemenangan PvP Dojo dsb)
+ */
+export async function recordRPLedgerEntry(userId, { points = 20, reason = 'Kemenangan Local 1v1 PvP Arena' } = {}) {
+  const client = getSupabase();
+  if (!client || !userId) return null;
+
+  try {
+    const { data, error } = await client
+      .from('rp_ledger')
+      .insert({
+        user_id: userId,
+        points: Math.floor(Number(points) || 20),
+        reason: String(reason || 'Kemenangan Local 1v1 PvP Arena')
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.warn('Dayloom: Catatan rp_ledger belum dapat disimpan ke awan:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Dayloom: Gagal mencatat reward ke rp_ledger awan:', err);
+    return null;
+  }
+}

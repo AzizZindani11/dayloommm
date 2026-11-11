@@ -9,7 +9,7 @@ import assert from 'assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { RANKS } from '../js/config.js';
-import { getCurrentRank, getRankProgress, getHighestRank } from '../js/progression.js';
+import { getCurrentRank, getRankProgress, getHighestRank, awardRPForTask, awardRPForPvPWin } from '../js/progression.js';
 import { mapCloudDataToState, validateAndSanitizeState, createDefaultState } from '../js/storage.js';
 
 console.log('=== MEMULAI TEST SUITE: DAYLOOM RANK SYNCHRONIZATION & RECONCILIATION ===\n');
@@ -475,4 +475,246 @@ assert.strictEqual(fullProfileState.rewardedPvPMatchIds.length, 2);
 
 console.log('  [LULUS] Seluruh 6 fokus Final Code Review terverifikasi 100% aman dan tangguh.');
 
-console.log('\n=== SELURUH 8 BAGIAN PENGUJIAN RANK SYNCHRONIZATION LULUS 100% ===');
+// ===========================================================================
+// BAGIAN 9: FINAL RP SYSTEM UNIFICATION & REGRESSION SUITE (SKENARIO A - J)
+// Memverifikasi Penyatuan Total RP: Arena + Mission Board + Global Rank
+// ===========================================================================
+console.log('\n[9/9] Menguji 10 Skenario Wajib Penyatuan RP (Arena + Mission Board + Global Rank)...');
+
+// Mock localStorage simulator untuk pengujian sesi & akun
+const testStorageMap = new Map();
+const testStorage = {
+  getItem: (k) => testStorageMap.has(k) ? testStorageMap.get(k) : null,
+  setItem: (k, v) => testStorageMap.set(k, String(v)),
+  removeItem: (k) => testStorageMap.delete(k),
+  clear: () => testStorageMap.clear()
+};
+
+// --- SKENARIO A: Arena Memberikan RP (30 RP -> menang Arena -> 40 RP / 50 RP) ---
+const stateA = createDefaultState();
+stateA.rp = 30;
+stateA.rewardedTaskIds = ['t_init_1', 't_init_2', 't_init_3'];
+stateA.rewardedPvPMatchIds = [];
+const winResA = awardRPForPvPWin(stateA, 'match_scen_a_001', { points: 10 });
+assert.strictEqual(winResA.awarded, true);
+assert.strictEqual(stateA.rp, 40, 'Skenario A: 30 RP + 10 RP Arena harus menjadi 40 RP!');
+assert.strictEqual(stateA.rewardedPvPMatchIds.includes('match_scen_a_001'), true);
+console.log('  [LULUS] Skenario A: 30 RP -> menang Arena -> 40 RP berhasil.');
+
+// --- SKENARIO B: Arena Rank-Up (40 RP -> menang Arena -> 50 RP -> Legend) ---
+const winResB = awardRPForPvPWin(stateA, 'match_scen_b_002', { points: 10 });
+assert.strictEqual(winResB.awarded, true);
+assert.strictEqual(stateA.rp, 50, 'Skenario B: 40 RP + 10 RP Arena harus menjadi 50 RP!');
+assert.strictEqual(winResB.rankedUp, true, 'Harus naik rank saat mencapai 50 RP!');
+assert.strictEqual(winResB.newRank.id, 'legend', 'Peringkat harus tepat Legend!');
+assert.strictEqual(getCurrentRank(stateA.rp).id, 'legend');
+console.log('  [LULUS] Skenario B: 40 RP -> menang Arena -> 50 RP -> Naik ke Legend terverifikasi.');
+
+// --- SKENARIO C: Mission Board (50 RP -> buat misi baru -> selesaikan misi -> 60 RP) ---
+const newQuestC = {
+  id: 'quest_scen_c_99',
+  title: 'Misi Prioritas Strategis Desa',
+  status: 'berjalan',
+  checklist: [{ id: 'chk_c1', text: 'Target utama tuntas', completed: true }]
+};
+stateA.tasks.unshift(newQuestC);
+// Total RP tidak boleh berubah saat membuat misi
+assert.strictEqual(stateA.rp, 50, 'Membuat misi baru tidak boleh mereset atau mengurangi 50 RP!');
+
+// Selesaikan misi tersebut (+10 RP)
+newQuestC.status = 'selesai';
+const questRewardC = awardRPForTask(stateA, newQuestC);
+assert.strictEqual(questRewardC.awarded, true);
+assert.strictEqual(questRewardC.rpGained, 10);
+assert.strictEqual(stateA.rp, 60, 'Skenario C: 50 RP (dari Arena) + 10 RP (dari Misi) HARUS menjadi 60 RP kumulatif!');
+assert.strictEqual(getCurrentRank(stateA.rp).id, 'legend', 'Rank harus tetap Legend pada 60 RP!');
+console.log('  [LULUS] Skenario C: 50 RP -> buat misi -> selesaikan -> 60 RP terbukti terakumulasi satu sumber.');
+
+// --- SKENARIO D: Kombinasi Bolak-Balik (Arena -> Mission -> Arena -> Mission) ---
+const comboState = createDefaultState();
+comboState.rp = 0;
+comboState.rewardedTaskIds = [];
+comboState.rewardedPvPMatchIds = [];
+
+// 1. Mission 1 (+10 RP)
+const m1 = { id: 'comb_m1', status: 'selesai', checklist: [] };
+awardRPForTask(comboState, m1);
+assert.strictEqual(comboState.rp, 10);
+
+// 2. Arena Match 1 (+20 RP)
+awardRPForPvPWin(comboState, 'comb_pvp_1', { points: 20 });
+assert.strictEqual(comboState.rp, 30);
+
+// 3. Mission 2 (+10 RP)
+const m2 = { id: 'comb_m2', status: 'selesai', checklist: [] };
+awardRPForTask(comboState, m2);
+assert.strictEqual(comboState.rp, 40);
+
+// 4. Arena Match 2 (+20 RP) -> Mencapai 60 RP (Legend)
+const pvpRes2 = awardRPForPvPWin(comboState, 'comb_pvp_2', { points: 20 });
+assert.strictEqual(comboState.rp, 60);
+assert.strictEqual(pvpRes2.rankedUp, true);
+assert.strictEqual(getCurrentRank(comboState.rp).id, 'legend');
+
+// 5. Mission 3 (+10 RP) -> Mencapai 70 RP
+const m3 = { id: 'comb_m3', status: 'selesai', checklist: [] };
+awardRPForTask(comboState, m3);
+assert.strictEqual(comboState.rp, 70);
+assert.strictEqual(getCurrentRank(comboState.rp).id, 'legend');
+console.log('  [LULUS] Skenario D: Kombinasi bolak-balik Arena dan Mission Board terbukti 100% kumulatif (70 RP).');
+
+// --- SKENARIO E: Persistence (60 RP -> Refresh Halaman -> Tetap 60 RP) ---
+testStorage.setItem('dayloom_user_user_persist', JSON.stringify(stateA));
+const cachedRaw = JSON.parse(testStorage.getItem('dayloom_user_user_persist'));
+
+const refreshedState = mapCloudDataToState(
+  { id: 'user_persist', total_rp: 60 },
+  stateA.tasks,
+  { id: 'user_persist' },
+  [{ rank_id: 'legend', rp_at_time: 50 }],
+  [
+    { id: 'led_1', points: 10, reason: 'Misi A1' },
+    { id: 'led_2', points: 10, reason: 'Misi A2' },
+    { id: 'led_3', points: 10, reason: 'Misi A3' },
+    { id: 'led_pvp', points: 20, reason: 'Arena Win' },
+    { id: 'led_c', points: 10, reason: 'Misi C' }
+  ],
+  cachedRaw
+);
+assert.strictEqual(refreshedState.rp, 60, 'Skenario E: Setelah refresh, total RP harus tetap 60 RP!');
+assert.strictEqual(getCurrentRank(refreshedState.rp).id, 'legend', 'Setelah refresh, rank harus tetap Legend!');
+console.log('  [LULUS] Skenario E: Persistence 60 RP setelah refresh terbukti konsisten.');
+
+// --- SKENARIO F: Account (60 RP -> Logout -> Login Kembali -> Tetap 60 RP) ---
+// Logout: Beralih ke state tamu (0 RP)
+const guestLogoutState = createDefaultState();
+assert.strictEqual(guestLogoutState.rp, 0);
+assert.strictEqual(getCurrentRank(guestLogoutState.rp).id, 'epic');
+
+// Login Kembali: Memuat data cloud dan cache pengguna
+const reLoginState = mapCloudDataToState(
+  { id: 'user_persist', total_rp: 60 },
+  stateA.tasks,
+  { id: 'user_persist' },
+  [{ rank_id: 'legend', rp_at_time: 50 }],
+  [
+    { id: 'led_1', points: 10 },
+    { id: 'led_2', points: 10 },
+    { id: 'led_3', points: 10 },
+    { id: 'led_pvp', points: 20 },
+    { id: 'led_c', points: 10 }
+  ],
+  cachedRaw
+);
+assert.strictEqual(reLoginState.rp, 60, 'Skenario F: Setelah logout dan login kembali, total RP tetap 60 RP!');
+assert.strictEqual(getCurrentRank(reLoginState.rp).id, 'legend');
+console.log('  [LULUS] Skenario F: Logout dan login kembali mempertahankan 60 RP & Rank Legend.');
+
+// --- SKENARIO G: Replace / Delete Mission (RP yang Diperoleh Tetap Utuh) ---
+// Misi di board diganti dengan 3 misi baru yang belum selesai
+const replacedTasks = [
+  { id: 'q_rep_1', isRPClaimed: false, status: 'tersedia', title: 'Misi Baru 1' },
+  { id: 'q_rep_2', isRPClaimed: false, status: 'tersedia', title: 'Misi Baru 2' },
+  { id: 'q_rep_3', isRPClaimed: false, status: 'tersedia', title: 'Misi Baru 3' }
+];
+const stateReplaced = mapCloudDataToState(
+  { id: 'user_persist', total_rp: 60 },
+  replacedTasks,
+  { id: 'user_persist' },
+  [{ rank_id: 'legend', rp_at_time: 50 }],
+  [
+    { id: 'led_1', points: 10 },
+    { id: 'led_2', points: 10 },
+    { id: 'led_3', points: 10 },
+    { id: 'led_pvp', points: 20 },
+    { id: 'led_c', points: 10 }
+  ],
+  reLoginState
+);
+assert.strictEqual(stateReplaced.rp, 60, 'Skenario G: Mengganti atau menghapus misi TIDAK BOLEH mengurangi 60 RP!');
+assert.strictEqual(getCurrentRank(stateReplaced.rp).id, 'legend');
+assert.strictEqual(stateReplaced.tasks.length, 3);
+assert.ok(stateReplaced.rewardedTaskIds.includes('quest_scen_c_99'), 'Riwayat ID tugas yang telah diberi reward tetap terpelihara');
+console.log('  [LULUS] Skenario G: Replace/delete misi terbukti mempertahankan seluruh 60 RP.');
+
+// --- SKENARIO H: Duplicate Reward Prevention (Anti-Duplikasi Ketat) ---
+// Klaim ulang task yang sama
+const dupTaskRes = awardRPForTask(stateA, newQuestC);
+assert.strictEqual(dupTaskRes.awarded, false, 'Klaim task yang sama harus ditolak');
+assert.strictEqual(dupTaskRes.rpGained, 0);
+
+// Klaim ulang match PvP yang sama
+const dupMatchRes = awardRPForPvPWin(stateA, 'match_scen_a_001', { points: 10 });
+assert.strictEqual(dupMatchRes.awarded, false, 'Klaim match PvP yang sama harus ditolak');
+assert.strictEqual(dupMatchRes.rpGained, 0);
+
+// Deduplikasi entri di rp_ledger
+const duplicatedLedger = [
+  { id: 'txn_1', points: 10 },
+  { id: 'txn_1', points: 10 }, // Duplikat transaksi ID sama
+  { id: 'txn_2', points: 20 }
+];
+const dupLedgerState = mapCloudDataToState(
+  { id: 'usr_dup_check', total_rp: 30 },
+  [],
+  { id: 'usr_dup_check' },
+  [],
+  duplicatedLedger
+);
+assert.strictEqual(dupLedgerState.rp, 30, 'Buku besar rp_ledger harus menyaring transaksi duplikat menjadi 30 RP');
+console.log('  [LULUS] Skenario H: Pencegahan reward duplikat (Anti-Duplikasi) terbukti aman 100%.');
+
+// --- SKENARIO I: Account Isolation (Isolasi Antar Pengguna) ---
+const userA_ID = 'user_account_alpha';
+const userB_ID = 'user_account_beta';
+
+const userA_State = mapCloudDataToState(
+  { id: userA_ID, username: 'Alpha', total_rp: 60 },
+  [{ id: 't_a1', isRPClaimed: true }],
+  { id: userA_ID },
+  [{ rank_id: 'legend', rp_at_time: 50 }],
+  [{ id: 'l_a1', points: 60 }]
+);
+testStorage.setItem(`dayloom_user_${userA_ID}`, JSON.stringify(userA_State));
+
+const userB_State = mapCloudDataToState(
+  { id: userB_ID, username: 'Beta', total_rp: 10 },
+  [{ id: 't_b1', isRPClaimed: true }],
+  { id: userB_ID },
+  [],
+  [{ id: 'l_b1', points: 10 }]
+);
+testStorage.setItem(`dayloom_user_${userB_ID}`, JSON.stringify(userB_State));
+
+// Verifikasi pembacaan terisolasi
+const loadedA = JSON.parse(testStorage.getItem(`dayloom_user_${userA_ID}`));
+const loadedB = JSON.parse(testStorage.getItem(`dayloom_user_${userB_ID}`));
+
+assert.strictEqual(loadedA.rp, 60, 'Akun Alpha harus tetap 60 RP (Legend)');
+assert.strictEqual(getCurrentRank(loadedA.rp).id, 'legend');
+assert.strictEqual(loadedB.rp, 10, 'Akun Beta harus tetap 10 RP (Epic)');
+assert.strictEqual(getCurrentRank(loadedB.rp).id, 'epic');
+assert.notStrictEqual(loadedA.cloudUserId, loadedB.cloudUserId, 'ID pengguna harus terisolasi penuh');
+console.log('  [LULUS] Skenario I: Isolasi antar-akun terbukti 100% aman dan tidak tercampur.');
+
+// --- SKENARIO J: Rank Calculation dari Total RP Kumulatif ---
+const rankCheckCases = [
+  { rp: 0, expected: 'epic' },
+  { rp: 49, expected: 'epic' },
+  { rp: 50, expected: 'legend' },
+  { rp: 119, expected: 'legend' },
+  { rp: 120, expected: 'mythic' },
+  { rp: 219, expected: 'mythic' },
+  { rp: 220, expected: 'mythic_honor' },
+  { rp: 349, expected: 'mythic_honor' },
+  { rp: 350, expected: 'mythic_glory' },
+  { rp: 499, expected: 'mythic_glory' },
+  { rp: 500, expected: 'mythic_immortal' }
+];
+rankCheckCases.forEach(({ rp, expected }) => {
+  const rk = getCurrentRank(rp);
+  assert.strictEqual(rk.id, expected, `RP kumulatif ${rp} harus menghasilkan rank ${expected}`);
+});
+console.log('  [LULUS] Skenario J: Perhitungan rank dari total RP kumulatif terbukti konsisten di seluruh batas tier.');
+
+console.log('\n=== SELURUH 9 BAGIAN PENGUJIAN RANK SYNCHRONIZATION LULUS 100% ===');

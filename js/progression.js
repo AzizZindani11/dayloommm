@@ -341,7 +341,9 @@ export function awardRPForPvPWin(state, matchId, details = {}) {
     };
   }
 
-  const RP_PVP_WIN = 20;
+  const RP_PVP_WIN = typeof details.points === 'number' && details.points > 0
+    ? Math.floor(details.points)
+    : (typeof details.rpGained === 'number' && details.rpGained > 0 ? Math.floor(details.rpGained) : 20);
   const prevRank = getCurrentRank(state.rp);
   state.rewardedPvPMatchIds.push(matchId);
   state.rp = (Number(state.rp) || 0) + RP_PVP_WIN;

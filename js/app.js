@@ -65,6 +65,7 @@ import {
   fetchTasksWithChecklists,
   fetchRankHistory,
   fetchRPLedger,
+  recordRPLedgerEntry,
   recordRankHistory,
   createTask,
   updateTask,
@@ -292,9 +293,11 @@ class DayloomApp {
       }
 
       // Self-Healing: Jika total_rp di Supabase tertinggal atau NULL di database, sinkronkan nilai rekonsiliasi yang benar
-      if (typeof profileData?.total_rp !== 'number' || profileData.total_rp < mappedState.rp) {
-        if (mappedState.rp > (this.lastSyncedRP || 0)) {
+      const cloudRP = typeof profileData?.total_rp === 'number' && !isNaN(profileData.total_rp) ? profileData.total_rp : 0;
+      if (typeof profileData?.total_rp !== 'number' || cloudRP < mappedState.rp) {
+        if (mappedState.rp > (this.lastCloudSyncedRP || 0) || cloudRP < mappedState.rp) {
           this.lastSyncedRP = mappedState.rp;
+          this.lastCloudSyncedRP = mappedState.rp;
           updateProfile(userId, { total_rp: mappedState.rp }).catch(err => {
             console.warn('Dayloom: Gagal menyelaraskan total_rp profil di awan:', err);
           });
@@ -352,16 +355,20 @@ class DayloomApp {
 
     if (this.currentUser && typeof this.state.rp === 'number') {
       const targetRP = this.state.rp;
-      if (targetRP > (this.lastSyncedRP || 0)) {
-        this.lastSyncedRP = targetRP;
-        try {
-          await updateProfile(this.currentUser.id, { total_rp: targetRP });
-          if (rewardResult.rankedUp && rewardResult.newRank) {
-            await recordRankHistory(this.currentUser.id, rewardResult.newRank, targetRP);
-          }
-        } catch (err) {
-          console.warn('Dayloom: Gagal menyinkronkan reward PvP Dojo ke awan:', err);
+      this.lastSyncedRP = targetRP;
+      this.lastCloudSyncedRP = targetRP;
+      try {
+        await updateProfile(this.currentUser.id, { total_rp: targetRP });
+        // Catat reward kemenangan PvP ke buku besar rp_ledger Supabase secara atomik
+        recordRPLedgerEntry(this.currentUser.id, {
+          points: rewardResult.rpGained || 20,
+          reason: `Kemenangan Local 1v1 PvP Arena [match:${matchId}]`
+        }).catch(() => {});
+        if (rewardResult.rankedUp && rewardResult.newRank) {
+          await recordRankHistory(this.currentUser.id, rewardResult.newRank, targetRP);
         }
+      } catch (err) {
+        console.warn('Dayloom: Gagal menyinkronkan reward PvP Dojo ke awan:', err);
       }
     }
 
@@ -928,27 +935,48 @@ class DayloomApp {
         }
 
         const prevRank = getCurrentRank(this.state.rp);
+        const prevRP = typeof this.state.rp === 'number' && !isNaN(this.state.rp) ? this.state.rp : 0;
 
-        // Ambil total RP terbaru dari respon RPC Supabase
+        // Ambil total RP terbaru dari respon RPC Supabase atau pertahankan akumulasi kumulatif yang sah
+        let targetRP = prevRP + 10;
+        let rpcReturnedRP = 0;
         if (claimResult && typeof claimResult.new_total_rp === 'number') {
-          this.state.rp = Math.floor(claimResult.new_total_rp);
+          rpcReturnedRP = Math.floor(claimResult.new_total_rp);
+          targetRP = Math.max(prevRP + 10, rpcReturnedRP);
         } else if (claimResult && typeof claimResult.total_rp === 'number') {
-          this.state.rp = Math.floor(claimResult.total_rp);
+          rpcReturnedRP = Math.floor(claimResult.total_rp);
+          targetRP = Math.max(prevRP + 10, rpcReturnedRP);
         } else {
           try {
             const freshProfile = await fetchProfile(this.currentUser.id);
             if (freshProfile && typeof freshProfile.total_rp === 'number') {
-              this.state.rp = Math.floor(freshProfile.total_rp);
-            } else {
-              this.state.rp += 10;
-              updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => { });
+              rpcReturnedRP = Math.floor(freshProfile.total_rp);
+              targetRP = Math.max(prevRP + 10, rpcReturnedRP);
             }
-          } catch (_) {
-            this.state.rp += 10;
-            updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => { });
-          }
+          } catch (_) { }
+        }
+
+        this.state.rp = targetRP;
+
+        // Catat ke rpHistory agar audit riwayat reward lengkap
+        this.state.rpHistory = Array.isArray(this.state.rpHistory) ? this.state.rpHistory : [];
+        this.state.rpHistory.push({
+          date: today,
+          rp: this.state.rp,
+          delta: 10,
+          taskId: task.id,
+          reason: `Menuntaskan misi: ${task.title}`
+        });
+
+        // Jika Supabase profiles.total_rp tertinggal (misal RPC hanya menghitung dari total_rp lama),
+        // sinkronkan nilai totalRP yang benar ke profil awan
+        if (targetRP > rpcReturnedRP) {
+          updateProfile(this.currentUser.id, { total_rp: targetRP }).catch(err => {
+            console.warn('Dayloom: Gagal menyelaraskan total_rp setelah klaim misi:', err);
+          });
         }
         this.lastSyncedRP = Math.max(this.lastSyncedRP || 0, this.state.rp);
+        this.lastCloudSyncedRP = Math.max(this.lastCloudSyncedRP || 0, this.state.rp);
 
         const newRank = getCurrentRank(this.state.rp);
         const rankedUp = newRank.index > prevRank.index;

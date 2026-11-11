@@ -195,8 +195,26 @@ export function validateAndSanitizeState(raw, options = {}) {
   // JANGAN hitung ulang atau reset RP cloud berdasarkan buku besar lokal.
   // Untuk Mode Tamu (isCloud === false), validasi konsistensi dengan buku besar lokal tetap berjalan seperti sebelumnya.
   if (!isCloud) {
-    const expectedRP = (state.rewardedTaskIds.length * 10) + (state.rewardedPvPMatchIds.length * 20);
-    if (state.rp !== expectedRP) {
+    let calculatedRP = 0;
+    if (Array.isArray(state.rpHistory) && state.rpHistory.length > 0) {
+      const seenTaskIds = new Set();
+      const seenMatchIds = new Set();
+      for (const h of state.rpHistory) {
+        if (!h) continue;
+        if (h.taskId) {
+          if (seenTaskIds.has(h.taskId)) continue;
+          seenTaskIds.add(h.taskId);
+          calculatedRP += (Number(h.delta) || 10);
+        } else if (h.matchId) {
+          if (seenMatchIds.has(h.matchId)) continue;
+          seenMatchIds.add(h.matchId);
+          calculatedRP += (Number(h.delta) || 20);
+        }
+      }
+    }
+    const fallbackExpectedRP = (state.rewardedTaskIds.length * 10) + (state.rewardedPvPMatchIds.length * 20);
+    const expectedRP = calculatedRP > 0 ? calculatedRP : fallbackExpectedRP;
+    if (state.rp !== expectedRP && expectedRP > 0) {
       state.rp = expectedRP;
     }
   }
@@ -215,44 +233,117 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
 
   const userId = (profileData && profileData.id) || (user && user.id) || null;
 
-  // 1. RP dari tabel profiles (profiles.total_rp)
+  // 1. RP dari tabel profiles (profiles.total_rp di Supabase)
   const profileRP = typeof profileData?.total_rp === 'number' && !isNaN(profileData.total_rp) && profileData.total_rp >= 0
     ? Math.floor(profileData.total_rp)
     : 0;
 
-  // 2. RP dari daftar tugas yang sudah diklaim (tasks.is_rp_claimed === true)
+  // 2. RP dari buku besar rp_ledger (SUMBER BUKTI REWARD UTAMA SERVER)
+  // Menghitung akumulasi seluruh reward yang sah (misi + PvP Arena) tanpa duplikasi transaksi
+  const ledgerList = Array.isArray(rpLedgerData) ? rpLedgerData : [];
+  const seenLedgerKeys = new Set();
+  let ledgerRP = 0;
+  for (const item of ledgerList) {
+    if (!item) continue;
+    const key = item.id
+      ? String(item.id)
+      : (item.task_id ? `${item.task_id}_${item.created_at || ''}_${item.points || ''}` : `${item.reason || ''}_${item.created_at || ''}_${item.points || ''}`);
+    if (key && seenLedgerKeys.has(key)) continue;
+    if (key) seenLedgerKeys.add(key);
+    const pts = Number(item.points);
+    if (!isNaN(pts) && pts > 0) {
+      ledgerRP += Math.floor(pts);
+    }
+  }
+
+  // 3. RP dari daftar tugas aktif di awan yang telah diklaim (tasks.is_rp_claimed === true)
   const tasksList = Array.isArray(tasksData) ? tasksData : [];
   const claimedTasks = tasksList.filter(t => t && (t.isRPClaimed || t.is_rp_claimed));
   const claimedTasksRP = claimedTasks.length * 10;
 
-  // 3. RP dari buku besar rp_ledger (jika tersedia)
-  const ledgerList = Array.isArray(rpLedgerData) ? rpLedgerData : [];
-  const ledgerRP = ledgerList.reduce((sum, item) => sum + (Number(item?.points) || 0), 0);
+  // 4. Kumpulkan seluruh ID tugas yang pernah diberi reward (Preservasi Riwayat & Anti-Duplikasi)
+  // Termasuk ID tugas yang sudah dihapus atau diganti dari Papan Misi
+  const rewardedTaskSet = new Set();
+  if (Array.isArray(cachedState?.rewardedTaskIds)) {
+    cachedState.rewardedTaskIds.forEach(id => {
+      if (id && (typeof id === 'string' || typeof id === 'number')) {
+        rewardedTaskSet.add(String(id));
+      }
+    });
+  }
+  tasksList.forEach(t => {
+    if (t && (t.isRPClaimed || t.is_rp_claimed)) {
+      if (t.id) rewardedTaskSet.add(String(t.id));
+      if (t.dbId) rewardedTaskSet.add(String(t.dbId));
+      if (t.localId) rewardedTaskSet.add(String(t.localId));
+      if (t.local_id) rewardedTaskSet.add(String(t.local_id));
+    }
+  });
+  const mergedRewardedTaskIds = Array.from(rewardedTaskSet);
 
-  // 4. Validasi ketat terhadap cachedRP:
-  // Cache lokal TIDAK BOLEH menaikkan RP secara sembarangan jika nilainya tidak didukung
-  // oleh bukti aktivitas nyata di buku besar lokal (tasks claimed + rewardedPvPMatchIds).
+  // 5. Reward kemenangan Dojo PvP yang sah (Dojo PvP memberikan +20 RP per kemenangan)
+  // Deduplikasi match ID untuk mencegah klaim ganda dari pertandingan yang sama
+  const uniquePvPMatches = Array.isArray(cachedState?.rewardedPvPMatchIds)
+    ? [...new Set(cachedState.rewardedPvPMatchIds.filter(id => id && typeof id === 'string' && id.trim().length > 0))]
+    : [];
+  const pvpRP = uniquePvPMatches.length * 20;
+
+  // 6. Evaluasi konservatif dari milestone rank_history sebagai FALLBACK
+  // PENTING: rank_history adalah jejak milestone, BUKAN buku besar untuk dijumlahkan!
+  // Kita hanya mengambil batas bawah (minimum milestone RP) tertinggi yang pernah dicapai secara resmi.
+  let milestoneFallbackRP = 0;
+  if (Array.isArray(rankHistoryData) && rankHistoryData.length > 0) {
+    for (const r of rankHistoryData) {
+      if (!r) continue;
+      const rankConfig = RANKS.find(rk => rk.id === (r.rank_id || r.rankId));
+      const minRankRP = rankConfig ? rankConfig.minRP : 0;
+      const rpRecorded = typeof (r.rp_at_time ?? r.rpAtTime) === 'number' && !isNaN(r.rp_at_time ?? r.rpAtTime)
+        ? Math.floor(r.rp_at_time ?? r.rpAtTime)
+        : minRankRP;
+      const candidateRP = Math.max(minRankRP, rpRecorded);
+      if (candidateRP > milestoneFallbackRP) {
+        milestoneFallbackRP = candidateRP;
+      }
+    }
+  }
+
+  // 7. Rekonsiliasi Cache Lokal (Validasi Bukti Nyata):
+  // Menjaga agar cachedState tidak tertimpa oleh nilai cloud yang lebih rendah (misal server belum tersinkronisasi),
+  // sekaligus memastikan cache palsu/ditempa tidak bisa menaikkan RP secara sembarangan.
   let validCachedRP = 0;
   if (cachedState && typeof cachedState.rp === 'number' && !isNaN(cachedState.rp) && cachedState.rp >= 0) {
     const rawCachedRP = Math.floor(cachedState.rp);
-    const cachedClaimedTasks = Array.isArray(cachedState.tasks)
-      ? cachedState.tasks.filter(t => t && (t.isRPClaimed || t.is_rp_claimed)).length
-      : (Array.isArray(cachedState.rewardedTaskIds) ? cachedState.rewardedTaskIds.length : 0);
-    const cachedPvPMatches = Array.isArray(cachedState.rewardedPvPMatchIds)
-      ? cachedState.rewardedPvPMatchIds.length
-      : 0;
 
-    // Batas atas maksimum yang dapat dipertanggungjawabkan secara matematis:
-    // Aktivitas di dalam cache sendiri (tasks + pvp), atau profileRP server ditambah pvp lokal baru
-    const cacheActivityRP = (cachedClaimedTasks * 10) + (cachedPvPMatches * 20);
-    const maxVerifiableCacheRP = Math.max(cacheActivityRP, profileRP + (cachedPvPMatches * 20));
+    // Bukti aktivitas tugas di dalam cache:
+    // Cek tugas yang masih ada di board cache ATAU bukti ID tugas yang tercatat di riwayat
+    const cachedBoardClaimed = Array.isArray(cachedState.tasks)
+      ? cachedState.tasks.filter(t => t && (t.isRPClaimed || t.is_rp_claimed)).length
+      : 0;
+    const cachedHistoryClaimed = Array.isArray(cachedState.rpHistory)
+      ? cachedState.rpHistory.filter(h => h && typeof h.reason === 'string' && /misi|quest/i.test(h.reason)).length
+      : 0;
+    const verifiedCachedTaskCount = Math.max(cachedBoardClaimed, cachedHistoryClaimed, mergedRewardedTaskIds.length);
+
+    // Batas atas maksimum yang dapat dipertanggungjawabkan untuk cache lokal:
+    const maxVerifiableCacheRP = Math.max(
+      profileRP,
+      ledgerRP,
+      (verifiedCachedTaskCount * 10) + pvpRP,
+      milestoneFallbackRP
+    );
     validCachedRP = Math.min(rawCachedRP, maxVerifiableCacheRP);
   }
 
-  // Rekonsiliasi otoritatif: Ambil nilai RP maksimum yang sah dari sumber server dan aktivitas terverifikasi
-  // Mencegah penurunan atau reset rank akibat profiles.total_rp tertinggal / bernilai NULL di database
-  // Catatan: rank_history digunakan untuk riwayat & getHighestRank, bukan mendikte total_rp aktif saat login
-  const totalRP = Math.max(profileRP, claimedTasksRP, ledgerRP, validCachedRP);
+  // 8. Penentuan Total RP Akhir Authoritative:
+  // Sumber primer: Nilai maksimum yang sah dari profil server, buku besar rp_ledger,
+  // tugas aktif awan, dan cache lokal yang tervalidasi
+  const serverRP = Math.max(profileRP, ledgerRP, claimedTasksRP);
+  const primaryRP = Math.max(serverRP, validCachedRP);
+
+  // Jika total RP dari sumber utama tersedia (> 0), gunakan primaryRP.
+  // Jika tidak tersedia (misal akun baru buka perangkat baru, profileRP 0/null, belum ada tugas),
+  // gunakan milestoneFallbackRP dari rank_history sebagai fallback konservatif.
+  const totalRP = primaryRP > 0 ? primaryRP : milestoneFallbackRP;
 
   const curRank = getRankByRP(totalRP);
 
@@ -283,9 +374,7 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
   }
 
   // Pertahankan ID pertandingan PvP yang telah diberi hadiah dari cache agar tidak terjadi duplikasi klaim
-  const rewardedPvPMatchIds = Array.isArray(cachedState?.rewardedPvPMatchIds)
-    ? [...new Set(cachedState.rewardedPvPMatchIds.filter(id => typeof id === 'string'))]
-    : [];
+  const rewardedPvPMatchIds = uniquePvPMatches;
 
   const arenaStats = {
     wins: Math.max(Number(cachedState?.arenaStats?.wins) || 0, 0),
@@ -318,18 +407,18 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
             : 'traveler')
     },
     rp: totalRP,
-    rewardedTaskIds: Array.isArray(tasksData)
-      ? tasksData.filter(t => t.isRPClaimed || t.is_rp_claimed).map(t => String(t.id))
-      : [],
+    rewardedTaskIds: mergedRewardedTaskIds,
     rewardedPvPMatchIds: rewardedPvPMatchIds,
     rankHistory: mappedRankHistory,
-    rpHistory: [
-      {
-        date: getRelativeDateStr(0),
-        rp: totalRP,
-        reason: 'Sinkronisasi Awan Dayloom'
-      }
-    ],
+    rpHistory: Array.isArray(cachedState?.rpHistory) && cachedState.rpHistory.length > 0
+      ? cachedState.rpHistory
+      : [
+          {
+            date: getRelativeDateStr(0),
+            rp: totalRP,
+            reason: 'Sinkronisasi Awan Dayloom'
+          }
+        ],
     unlockedAchievements: [],
     visitedLocations: Array.isArray(profileData?.visited_locations) && profileData.visited_locations.length > 0
       ? profileData.visited_locations.filter(id => typeof id === 'string')
