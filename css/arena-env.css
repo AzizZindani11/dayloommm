@@ -338,6 +338,161 @@
   gap: 0.7rem;
 }
 
+/* Dropdown Audio Arena Popover (Compact, Non-Intrusive, Pixel RPG) */
+.arena-audio-dropdown-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-arena-audio-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(22, 28, 44, 0.88);
+  border: 1.5px solid var(--wood-brown, #5C4033);
+  border-radius: 6px;
+  color: #FFE08A;
+  padding: 0.32rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-arena-audio-trigger:hover,
+.btn-arena-audio-trigger.active {
+  background: rgba(38, 54, 74, 0.95);
+  border-color: #FFE08A;
+  box-shadow: 0 0 8px rgba(255, 224, 138, 0.35);
+}
+
+.arena-audio-popover-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  background: rgba(18, 22, 34, 0.97);
+  border: 2px solid var(--wood-brown, #5C4033);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 224, 138, 0.3);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  animation: fadeInDown 0.15s ease-out;
+}
+
+.arena-audio-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 224, 138, 0.25);
+  padding-bottom: 0.35rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #FFE08A;
+  letter-spacing: 0.05em;
+}
+
+.btn-close-audio-panel {
+  background: transparent;
+  border: none;
+  color: #D8C8B8;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.btn-close-audio-panel:hover {
+  color: #FF7777;
+}
+
+.arena-audio-panel-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.arena-panel-label {
+  font-size: 0.72rem;
+  color: #D8C8B8;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.arena-bgm-select {
+  width: 100%;
+  background: rgba(30, 40, 58, 0.95);
+  color: #FFE08A;
+  border: 1px solid rgba(255, 224, 138, 0.4);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.arena-audio-toggles-row {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.arena-audio-toggles-row .btn-open-controls {
+  flex: 1;
+  text-align: center;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.74rem;
+}
+
+.arena-vol-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #FFE08A;
+  font-size: 0.75rem;
+}
+
+.arena-vol-slider-wrap input[type="range"] {
+  flex: 1;
+  accent-color: #FFE08A;
+  cursor: pointer;
+}
+
+#arena-vol-value {
+  min-width: 32px;
+  text-align: right;
+  font-size: 0.72rem;
+  color: #D8C8B8;
+}
+
+/* Quickbar Audio Arena Legacy Fallback */
+.arena-audio-quickbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(20, 24, 38, 0.85);
+  border: 1.5px solid var(--wood-brown, #5C4033);
+  border-radius: 6px;
+  padding: 3px 8px;
+  backdrop-filter: blur(6px);
+}
+
+.arena-vol-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #FFE08A;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding-left: 4px;
+}
+
 .pvp-char-quick-switch {
   display: inline-flex;
   background: rgba(20, 24, 38, 0.85);

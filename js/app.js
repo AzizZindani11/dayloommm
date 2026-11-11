@@ -42,6 +42,10 @@ import {
   getCharacterSVG,
   getMeliodasSVG,
   getMeliodasPortraitSVG,
+  getVoidSVG,
+  getVoidPortraitSVG,
+  getLancelotSVG,
+  getLancelotPortraitSVG,
   getAchievementSVG,
   getIconSVG
 } from './art.js';
@@ -241,7 +245,7 @@ class DayloomApp {
             this.refreshAllUI();
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (!preloadedFromCache) {
@@ -321,7 +325,7 @@ class DayloomApp {
             this.refreshAllUI();
             this.showToast('Memuat data tersimpan dari sesi sebelumnya (mode luring).', 'info');
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if (!restoredFromCache) {
@@ -439,16 +443,53 @@ class DayloomApp {
     } else if (viewName === 'world' && this.world) {
       this.world.resizeCanvas();
     }
+
+    if (viewName !== 'arena') {
+      sound.stopLobbyAmbience();
+    }
   }
 
   bindTopBarControls() {
-    // Tombol Suara
+    // Tombol Suara Utama & Kontrol BGM Terpusat (BGM 1 vs BGM 2, Volume BGM, Mute)
     const soundBtn = document.getElementById('btn-toggle-sound');
+    const bgmTrackSelect = document.getElementById('select-bgm-track');
+    const bgmVolSlider = document.getElementById('header-bgm-volume');
+    const headerVolIcon = document.getElementById('header-vol-icon');
+
+    if (bgmTrackSelect) {
+      bgmTrackSelect.value = sound.getBgmTrack();
+      bgmTrackSelect.addEventListener('change', (e) => {
+        sound.setBgmTrack(e.target.value);
+      });
+      sound.onTrackChange((track) => {
+        if (bgmTrackSelect) bgmTrackSelect.value = track;
+      });
+    }
+
+    if (bgmVolSlider) {
+      bgmVolSlider.value = Math.round(sound.getBGMVolume() * 100);
+      bgmVolSlider.addEventListener('input', (e) => {
+        const val = Number(e.target.value) / 100;
+        sound.setBGMVolume(val);
+        if (headerVolIcon) {
+          headerVolIcon.textContent = val === 0 ? '🔇' : (val < 0.5 ? '🔉' : '🔊');
+        }
+      });
+      sound.onBgmVolumeChange((vol) => {
+        if (bgmVolSlider) bgmVolSlider.value = Math.round(vol * 100);
+        if (headerVolIcon) {
+          headerVolIcon.textContent = vol === 0 ? '🔇' : (vol < 0.5 ? '🔉' : '🔊');
+        }
+      });
+    }
+
     if (soundBtn) {
       this.updateSoundButtonUI(soundBtn);
       soundBtn.addEventListener('click', () => {
         sound.toggle();
         this.updateSoundButtonUI(soundBtn);
+        if (bgmTrackSelect) bgmTrackSelect.value = sound.getBgmTrack();
+        if (bgmVolSlider) bgmVolSlider.value = Math.round(sound.getBGMVolume() * 100);
       });
     }
 
@@ -900,11 +941,11 @@ class DayloomApp {
               this.state.rp = Math.floor(freshProfile.total_rp);
             } else {
               this.state.rp += 10;
-              updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => {});
+              updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => { });
             }
           } catch (_) {
             this.state.rp += 10;
-            updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => {});
+            updateProfile(this.currentUser.id, { total_rp: this.state.rp }).catch(() => { });
           }
         }
         this.lastSyncedRP = Math.max(this.lastSyncedRP || 0, this.state.rp);
@@ -1305,8 +1346,8 @@ class DayloomApp {
     const avatarHTML = profile.avatar
       ? `<img src="${profile.avatar}" alt="Foto profil ${escapeHTML(profile.name)}" class="identity-avatar-img" />`
       : `<div class="identity-avatar-fallback" aria-label="Avatar bawaan">${getCharacterSVG({
-          outfitId: profile.outfit, hatId: profile.hat, rankId: curRank.id, size: 108, facing: 'right'
-        })}</div>`;
+        outfitId: profile.outfit, hatId: profile.hat, rankId: curRank.id, size: 108, facing: 'right'
+      })}</div>`;
 
     const formatCount = (n) => Number(n || 0).toLocaleString('id-ID');
 
@@ -1462,20 +1503,20 @@ class DayloomApp {
                   <label for="prof-outfit-select">Jubah &amp; Busana</label>
                   <select id="prof-outfit-select" class="rpg-input">
                     ${CHARACTER_OUTFITS.map(o => {
-                      const unlocked = curRank.index >= o.minRankIndex;
-                      const reqRank = RANKS[o.minRankIndex]?.name || 'Epic';
-                      return `<option value="${o.id}" ${profile.outfit === o.id ? 'selected' : ''} ${!unlocked ? 'disabled' : ''}>${o.name} ${!unlocked ? `(Butuh Rank ${reqRank})` : ''}</option>`;
-                    }).join('')}
+      const unlocked = curRank.index >= o.minRankIndex;
+      const reqRank = RANKS[o.minRankIndex]?.name || 'Epic';
+      return `<option value="${o.id}" ${profile.outfit === o.id ? 'selected' : ''} ${!unlocked ? 'disabled' : ''}>${o.name} ${!unlocked ? `(Butuh Rank ${reqRank})` : ''}</option>`;
+    }).join('')}
                   </select>
                 </div>
                 <div class="form-group">
                   <label for="prof-hat-select">Penutup Kepala / Aksesori</label>
                   <select id="prof-hat-select" class="rpg-input">
                     ${CHARACTER_HATS.map(h => {
-                      const unlocked = curRank.index >= h.minRankIndex;
-                      const reqRank = RANKS[h.minRankIndex]?.name || 'Epic';
-                      return `<option value="${h.id}" ${profile.hat === h.id ? 'selected' : ''} ${!unlocked ? 'disabled' : ''}>${h.name} ${!unlocked ? `(Butuh Rank ${reqRank})` : ''}</option>`;
-                    }).join('')}
+      const unlocked = curRank.index >= h.minRankIndex;
+      const reqRank = RANKS[h.minRankIndex]?.name || 'Epic';
+      return `<option value="${h.id}" ${profile.hat === h.id ? 'selected' : ''} ${!unlocked ? 'disabled' : ''}>${h.name} ${!unlocked ? `(Butuh Rank ${reqRank})` : ''}</option>`;
+    }).join('')}
                   </select>
                 </div>
               </div>
@@ -1484,10 +1525,10 @@ class DayloomApp {
           </details>
         </div>
 
-        <!-- Etalase Karakter: ilustrasi resmi 2D editorial modern (Traveler & Meliodas Wujud Normal) -->
+        <!-- Etalase Karakter: ilustrasi resmi 2D editorial modern (Traveler & Meliodas) -->
         <figure class="rpg-panel character-showcase" id="profile-character-showcase">
           <div class="showcase-char-switcher" role="tablist" aria-label="Pilih Potret Karakter">
-            <button type="button" class="showcase-char-tab ${(profile.selectedCharacter || 'traveler') !== 'meliodas' ? 'active' : ''}" data-profile-char-tab="traveler" role="tab" aria-selected="${(profile.selectedCharacter || 'traveler') !== 'meliodas'}">
+            <button type="button" class="showcase-char-tab ${profile.selectedCharacter === 'meliodas' ? '' : 'active'}" data-profile-char-tab="traveler" role="tab" aria-selected="${profile.selectedCharacter !== 'meliodas'}">
               Traveler
             </button>
             <button type="button" class="showcase-char-tab ${profile.selectedCharacter === 'meliodas' ? 'active' : ''}" data-profile-char-tab="meliodas" role="tab" aria-selected="${profile.selectedCharacter === 'meliodas'}">
@@ -1498,7 +1539,7 @@ class DayloomApp {
           <div class="showcase-stage">
             <img src="assets/characters/adventurer-illustration.jpg" alt="Traveler — Potret resmi editorial modern Sang Pengembara Dayloom" class="showcase-illustration ${profile.selectedCharacter === 'meliodas' ? 'hidden' : ''}" id="profile-showcase-img" loading="lazy" decoding="async" />
             <img src="assets/characters/meliodas-portrait.jpg" alt="Meliodas — Potret resmi kapten Boar Hat memegang pedang suci Lostvayne" class="showcase-illustration ${profile.selectedCharacter === 'meliodas' ? '' : 'hidden'}" id="profile-showcase-meliodas-img" loading="lazy" decoding="async" />
-            <div class="showcase-meliodas-portrait hidden" id="profile-meliodas-portrait" role="img" aria-label="Meliodas — Potret SVG wujud normal memegang pedang suci Lostvayne">
+            <div class="showcase-meliodas-portrait ${profile.selectedCharacter === 'meliodas' ? '' : 'hidden'}" id="profile-meliodas-portrait" role="img" aria-label="Meliodas — Potret SVG wujud normal memegang pedang suci Lostvayne">
               ${getMeliodasPortraitSVG()}
             </div>
             <div class="showcase-fallback hidden" id="profile-showcase-fallback">
@@ -1507,7 +1548,9 @@ class DayloomApp {
             </div>
           </div>
           <figcaption class="showcase-caption">
-            <h3 class="showcase-character-name" id="profile-showcase-char-name">${profile.selectedCharacter === 'meliodas' ? 'Meliodas' : 'Traveler'}</h3>
+            <h3 class="showcase-character-name" id="profile-showcase-char-name">
+              ${profile.selectedCharacter === 'meliodas' ? 'Meliodas' : 'Traveler'}
+            </h3>
             <div class="showcase-sprite-inset" id="profile-showcase-sprite-inset">
               ${profile.selectedCharacter === 'meliodas'
                 ? `${getMeliodasSVG({ mode: 'normal', size: 48, facing: 'right' })}<small>Wujud tempur normal • Lostvayne</small>`
@@ -1523,10 +1566,11 @@ class DayloomApp {
   }
 
   bindProfileViewEvents() {
-    // Tab etalase karakter di Profil (Traveler vs Meliodas Normal)
+    // Tab etalase karakter di Profil (Hanya Traveler & Meliodas untuk profil pemain)
     document.querySelectorAll('[data-profile-char-tab]').forEach(tab => {
       tab.addEventListener('click', () => {
-        const charId = tab.getAttribute('data-profile-char-tab') === 'meliodas' ? 'meliodas' : 'traveler';
+        const rawId = tab.getAttribute('data-profile-char-tab');
+        const charId = rawId === 'meliodas' ? 'meliodas' : 'traveler';
         if (this.state.profile.selectedCharacter === charId) return;
         this.state.profile.selectedCharacter = charId;
         sound.playClick();
@@ -1772,8 +1816,8 @@ class DayloomApp {
           <div class="rank-overview-progress">
             <div class="hud-rp-bar-track"><div class="hud-rp-bar-fill" style="width:${rankProg.percent}%"></div></div>
             <small>${rankProg.isMaxRank
-              ? `${this.state.rp} RP — kau telah mencapai puncak tertinggi.`
-              : `${this.state.rp} RP • ${rankProg.rpRemaining} RP lagi menuju ${rankProg.nextRank.name} (${rankProg.percent}%)`}</small>
+        ? `${this.state.rp} RP — kau telah mencapai puncak tertinggi.`
+        : `${this.state.rp} RP • ${rankProg.rpRemaining} RP lagi menuju ${rankProg.nextRank.name} (${rankProg.percent}%)`}</small>
           </div>
         </div>
         <div class="rank-overview-side">
@@ -1800,11 +1844,11 @@ class DayloomApp {
 
         <div class="ranks-ladder-list">
           ${RANKS.map((r, idx) => {
-            const isCurrent = r.id === curRank.id;
-            const isReached = this.state.rp >= r.minRP;
-            const rangeLabel = r.maxRP === Infinity ? `${r.minRP}+ RP` : `${r.minRP} – ${r.maxRP} RP`;
+          const isCurrent = r.id === curRank.id;
+          const isReached = this.state.rp >= r.minRP;
+          const rangeLabel = r.maxRP === Infinity ? `${r.minRP}+ RP` : `${r.minRP} – ${r.maxRP} RP`;
 
-            return `
+          return `
               <div class="rank-tier-row ${isCurrent ? 'is-current-tier' : ''} ${isReached ? 'is-unlocked-tier' : 'is-locked-tier'} tier-${r.id}">
                 <div class="tier-emblem-col">
                   ${getRankEmblemSVG(r.id, 58)}
@@ -1820,15 +1864,15 @@ class DayloomApp {
                 </div>
                 <div class="tier-status-col">
                   ${isCurrent
-                    ? `<span class="tier-badge current">Peringkatmu</span>`
-                    : isReached
-                      ? `<span class="tier-badge passed">Terlampaui</span>`
-                      : `<span class="tier-badge locked">Terkunci</span>`
-                  }
+              ? `<span class="tier-badge current">Peringkatmu</span>`
+              : isReached
+                ? `<span class="tier-badge passed">Terlampaui</span>`
+                : `<span class="tier-badge locked">Terkunci</span>`
+            }
                 </div>
               </div>
             `;
-          }).join('')}
+        }).join('')}
         </div>
       </div>
     `;
@@ -1860,8 +1904,8 @@ class DayloomApp {
 
       <div class="achievements-grid">
         ${ACHIEVEMENTS_CONFIG.map(ach => {
-          const isUnlocked = unlockedList.includes(ach.id);
-          return `
+      const isUnlocked = unlockedList.includes(ach.id);
+      return `
             <div class="rpg-panel achievement-card ${isUnlocked ? 'unlocked' : 'locked'}">
               <div class="ach-art-col">
                 ${getAchievementSVG(ach.iconType, isUnlocked, 68)}
@@ -1881,7 +1925,7 @@ class DayloomApp {
               </div>
             </div>
           `;
-        }).join('')}
+    }).join('')}
       </div>
     `;
   }

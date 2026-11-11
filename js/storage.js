@@ -57,7 +57,7 @@ export function createDefaultState() {
       social: { likes: 0, following: 0, followers: 0 },
       // Hingga 3 ID pencapaian yang dipamerkan (hanya pencapaian yang benar-benar terbuka yang ditampilkan).
       featuredAchievements: [],
-      // Karakter playable yang dipilih untuk Arena Dojo ('traveler' | 'meliodas')
+      // Karakter playable yang dipilih untuk Arena Dojo ('traveler' | 'meliodas' | 'void' | 'lancelot')
       selectedCharacter: 'traveler'
     },
     rp: 0,
@@ -170,7 +170,7 @@ export function validateAndSanitizeState(raw, options = {}) {
       featuredAchievements: Array.isArray(raw.profile?.featuredAchievements)
         ? [...new Set(raw.profile.featuredAchievements.filter(id => typeof id === 'string'))].slice(0, 3)
         : [],
-      selectedCharacter: ['traveler', 'meliodas'].includes(raw.profile?.selectedCharacter)
+      selectedCharacter: ['traveler', 'meliodas', 'void', 'lancelot'].includes(raw.profile?.selectedCharacter)
         ? raw.profile.selectedCharacter
         : 'traveler'
     },
@@ -311,9 +311,11 @@ export function mapCloudDataToState(profileData, tasksData, user = null, rankHis
       featuredAchievements: Array.isArray(profileData?.featured_achievements)
         ? [...new Set(profileData.featured_achievements.filter(id => typeof id === 'string'))].slice(0, 3)
         : [],
-      selectedCharacter: ['traveler', 'meliodas'].includes(profileData?.selected_character)
+      selectedCharacter: ['traveler', 'meliodas', 'void', 'lancelot'].includes(profileData?.selected_character)
         ? profileData.selected_character
-        : 'traveler'
+        : (['traveler', 'meliodas', 'void', 'lancelot'].includes(cachedState?.profile?.selectedCharacter)
+            ? cachedState.profile.selectedCharacter
+            : 'traveler')
     },
     rp: totalRP,
     rewardedTaskIds: Array.isArray(tasksData)

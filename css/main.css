@@ -235,6 +235,51 @@ body[data-time-of-day="malam"] {
   color: var(--cream-bg);
 }
 
+/* Audio Suite & BGM Switcher Terpusat (BGM 1 & BGM 2) */
+.header-audio-suite {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--cream-soft);
+  border: 2px solid var(--wood-brown);
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+
+.bgm-track-select {
+  background: transparent;
+  border: none;
+  color: var(--text-dark, #26364A);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+  outline: none;
+  border-radius: 4px;
+}
+
+.bgm-track-select:hover,
+.bgm-track-select:focus {
+  background: rgba(229, 184, 75, 0.18);
+}
+
+.header-bgm-vol-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.header-bgm-vol-wrap input[type="range"],
+.arena-vol-label input[type="range"] {
+  width: 65px;
+  height: 6px;
+  cursor: pointer;
+  accent-color: var(--gold, #E5B84B);
+}
+
 /* Bar Navigasi Utama */
 .main-nav-bar {
   background: var(--cream-soft);

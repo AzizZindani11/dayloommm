@@ -6,11 +6,31 @@
 
 import { ARENA_BOSSES, PLAYABLE_CHARACTERS } from './config.js';
 import { getCurrentRank, awardRPForPvPWin } from './progression.js';
-import { getCharacterSVG, getMeliodasSVG, getBossSVG, getRankEmblemSVG } from './art.js';
+import { getCharacterSVG, getMeliodasSVG, getVoidSVG, getLancelotSVG, getBossSVG, getRankEmblemSVG } from './art.js';
 import { sound } from './audio.js';
-import { LocalPvPArenaGame } from './pvp-game.js';
+import { LocalPvPArenaGame, normalizeCharacterId } from './pvp-game.js';
 import { ControlsModal } from './controls-modal.js';
 import { InputManager } from './input.js';
+
+function getFighterCharacterSVG(charId, state, rank, size = 130, facing = 'right') {
+  const norm = normalizeCharacterId(charId);
+  if (norm === 'meliodas') {
+    return getMeliodasSVG({ mode: 'normal', size, facing });
+  }
+  if (norm === 'void') {
+    return getVoidSVG({ mode: 'normal', size, facing });
+  }
+  if (norm === 'lancelot') {
+    return getLancelotSVG({ mode: 'human', size, facing });
+  }
+  return getCharacterSVG({
+    outfitId: state?.profile?.outfit || 'adventurer',
+    hatId: state?.profile?.hat || 'none',
+    rankId: rank?.id || 'epic',
+    size,
+    facing
+  });
+}
 
 const FOCUS_MANTRAS = [
   'MULAI SEKARANG',
@@ -68,8 +88,9 @@ export class ArenaController {
     const rank = getCurrentRank(state.rp);
     const activeTasks = state.tasks.filter(t => t.status !== 'selesai');
     const selectedBoss = ARENA_BOSSES.find(b => b.id === this.selectedBossId) || ARENA_BOSSES[0];
-    const selectedCharId = state.profile?.selectedCharacter === 'meliodas' ? 'meliodas' : 'traveler';
-    const selectedCharConfig = PLAYABLE_CHARACTERS.find(c => c.id === selectedCharId) || PLAYABLE_CHARACTERS[0];
+    const selectedCharId = normalizeCharacterId(state.profile?.selectedCharacter);
+    const selectedCharIdx = Math.max(0, PLAYABLE_CHARACTERS.findIndex(c => c.id === selectedCharId));
+    const selectedCharConfig = PLAYABLE_CHARACTERS[selectedCharIdx] || PLAYABLE_CHARACTERS[0];
 
     if (!this.selectedTaskId && activeTasks.length > 0) {
       this.selectedTaskId = activeTasks[0].id;
@@ -80,15 +101,7 @@ export class ArenaController {
       return;
     }
 
-    const fighterAvatarMarkup = selectedCharId === 'meliodas'
-      ? getMeliodasSVG({ mode: 'normal', size: 130, facing: 'right' })
-      : getCharacterSVG({
-          outfitId: state.profile.outfit,
-          hatId: state.profile.hat,
-          rankId: rank.id,
-          size: 130,
-          facing: 'right'
-        });
+    const fighterAvatarMarkup = getFighterCharacterSVG(selectedCharId, state, rank, 130, 'right');
 
     container.innerHTML = `
       <!-- Banner Transparansi Prototipe Ruang Daring -->
@@ -125,13 +138,13 @@ export class ArenaController {
             </div>
           </div>
 
-          <!-- Karusel Horizontal Pemilihan Karakter Playable (Traveler & Meliodas) -->
+          <!-- Karusel Horizontal Pemilihan Karakter Playable (4 Karakter) -->
           <div class="arena-character-carousel" id="arena-character-carousel" aria-label="Pemilihan Karakter Arena">
             <div class="char-carousel-header">
               <span class="char-carousel-title">Pilih Petarung Arena (Playable Character)</span>
               <div class="char-carousel-nav">
                 <button type="button" class="btn-char-slide" id="btn-char-prev" data-char-nav="prev" aria-label="Karakter Sebelumnya">&#9664;</button>
-                <span class="char-carousel-indicator">${selectedCharId === 'meliodas' ? '2 / 2' : '1 / 2'}</span>
+                <span class="char-carousel-indicator">${selectedCharIdx + 1} / ${PLAYABLE_CHARACTERS.length}</span>
                 <button type="button" class="btn-char-slide" id="btn-char-next" data-char-nav="next" aria-label="Karakter Berikutnya">&#9654;</button>
               </div>
             </div>
@@ -139,15 +152,7 @@ export class ArenaController {
             <div class="char-carousel-track">
               ${PLAYABLE_CHARACTERS.map(ch => {
                 const isSelected = ch.id === selectedCharId;
-                const miniSprite = ch.id === 'meliodas'
-                  ? getMeliodasSVG({ mode: 'normal', size: 58, facing: 'right' })
-                  : getCharacterSVG({
-                      outfitId: state.profile.outfit,
-                      hatId: state.profile.hat,
-                      rankId: rank.id,
-                      size: 58,
-                      facing: 'right'
-                    });
+                const miniSprite = getFighterCharacterSVG(ch.id, state, rank, 58, 'right');
                 return `
                   <button type="button" class="char-carousel-card ${isSelected ? 'active' : ''}" data-select-character="${ch.id}" aria-pressed="${isSelected}">
                     <div class="char-card-sprite">${miniSprite}</div>
@@ -497,10 +502,14 @@ export class ArenaController {
 
     document.querySelectorAll('[data-char-nav]').forEach(btn => {
       btn.addEventListener('click', () => {
+        const dir = btn.getAttribute('data-char-nav');
         const state = this.getState();
-        const cur = state.profile?.selectedCharacter === 'meliodas' ? 'meliodas' : 'traveler';
-        const next = cur === 'traveler' ? 'meliodas' : 'traveler';
-        this.selectCharacter(next);
+        const cur = normalizeCharacterId(state.profile?.selectedCharacter);
+        const curIdx = Math.max(0, PLAYABLE_CHARACTERS.findIndex(c => c.id === cur));
+        const nextIdx = dir === 'prev'
+          ? (curIdx - 1 + PLAYABLE_CHARACTERS.length) % PLAYABLE_CHARACTERS.length
+          : (curIdx + 1) % PLAYABLE_CHARACTERS.length;
+        this.selectCharacter(PLAYABLE_CHARACTERS[nextIdx].id);
       });
     });
 
@@ -530,7 +539,7 @@ export class ArenaController {
   }
 
   selectCharacter(charId) {
-    const validId = charId === 'meliodas' ? 'meliodas' : 'traveler';
+    const validId = normalizeCharacterId(charId);
     const state = this.getState();
     state.profile = state.profile || {};
     if (state.profile.selectedCharacter === validId) return;
@@ -550,10 +559,14 @@ export class ArenaController {
       oldModal.remove();
     }
 
+    // Putar efek suara memasuki lobi & ambience angin/lonceng sakura lembut
+    sound.playLobbyEnter();
+    sound.playLobbyAmbience();
+
     const state = this.getState();
     const rank = getCurrentRank(state.rp);
-    let p1Char = state.profile?.selectedCharacter === 'meliodas' ? 'meliodas' : 'traveler';
-    let p2Char = p1Char === 'meliodas' ? 'traveler' : 'meliodas';
+    let p1Char = normalizeCharacterId(state.profile?.selectedCharacter);
+    let p2Char = p1Char === 'lancelot' ? 'meliodas' : 'lancelot';
     let p1Ready = false;
     let p2Ready = false;
 
@@ -565,24 +578,54 @@ export class ArenaController {
     modal.setAttribute('aria-label', 'Floating Arena Viewport — Local PvP Arena');
 
     const renderKitInfo = (charId, facing = 'right') => {
-      const isMeliodas = charId === 'meliodas';
-      const spriteSvg = isMeliodas
-        ? getMeliodasSVG({ mode: 'normal', size: 76, facing })
-        : getCharacterSVG({ outfitId: state.profile?.outfit, hatId: state.profile?.hat, rankId: rank.id, size: 76, facing });
-      const kitHtml = isMeliodas
-        ? `<div><strong>Meliodas (Dragon Sin)</strong></div>
+      const norm = normalizeCharacterId(charId);
+      const spriteSvg = getFighterCharacterSVG(norm, state, rank, 76, facing);
+      let kitHtml = '';
+      if (norm === 'meliodas') {
+        kitHtml = `<div><strong>Meliodas (Dragon Sin)</strong></div>
            <div>🗡️ Basic: Lostvayne 5-Kombo</div>
            <div>🔥 [Q] Hellblaze Erupsi Tanah</div>
-           <div>👑 [R] Assault Mode (+50% Atribut)</div>`
-        : `<div><strong>Traveler (Penenun Hanamori)</strong></div>
+           <div>👑 [R] Assault Mode (+50% Atribut)</div>`;
+      } else if (norm === 'void') {
+        kitHtml = `<div><strong>Void (Pendekar Bayangan Kosong)</strong></div>
+           <div>⚡ Basic: Tebasan Bayangan Kosong (Speed Tinggi)</div>
+           <div>🌌 [Q] Void Rift Slash</div>
+           <div>👁️ [R] Eclipse Overdrive (Kecepatan Ekstrem)</div>`;
+      } else if (norm === 'lancelot') {
+        kitHtml = `<div><strong>Lancelot (Knight of War — 4KoA)</strong></div>
+           <div>🏹 Basic: Panah Bintang &amp; Katana Shirojika (Dekat)</div>
+           <div>🦊 [Q] Wujud Rubah Merah (Shin) — Lincah &amp; Disrupt</div>
+           <div>✨ [R] Shining Road (Homing Celestial Beam)</div>`;
+      } else {
+        kitHtml = `<div><strong>Traveler (Penenun Hanamori)</strong></div>
            <div>⚔️ Basic: Pedang Angin 3-Kombo</div>
            <div>🌪️ [Q] Phoenix Blast Jarak Jauh</div>
            <div>🔥 [R] Inferno Domain (Area Burn)</div>`;
+      }
       return `
         <div class="preview-sprite-stage">${spriteSvg}</div>
         <div class="preview-kit-info">${kitHtml}</div>
       `;
     };
+
+    const renderPickerButtons = (sideAttr, selectedChar, facing) => {
+      return PLAYABLE_CHARACTERS.map(ch => {
+        const isSel = ch.id === selectedChar;
+        const thumbSvg = getFighterCharacterSVG(ch.id, state, rank, 44, facing);
+        const shortLabel = ch.id === 'lancelot' ? 'Lancelot' : ch.id === 'void' ? 'Void' : ch.id === 'meliodas' ? 'Meliodas' : 'Traveler';
+        return `
+          <button type="button" class="char-pick-btn ${isSel ? 'selected' : ''}" data-${sideAttr}-char="${ch.id}">
+            <div class="pick-thumb">${thumbSvg}</div>
+            <span class="pick-name">${escapeHTML(shortLabel)}</span>
+          </button>
+        `;
+      }).join('');
+    };
+
+    const isMusicOn = typeof sound.isMusicEnabled === 'function' ? sound.isMusicEnabled() : Boolean(sound.musicEnabled);
+    const isSfxOn = typeof sound.isSFXEnabled === 'function' ? sound.isSFXEnabled() : Boolean(sound.sfxEnabled);
+    const currentBgmVol = typeof sound.getBGMVolume === 'function' ? sound.getBGMVolume() : (typeof sound.bgmVolume === 'number' ? sound.bgmVolume : 0.40);
+    const currentTrack = typeof sound.getBgmTrack === 'function' ? sound.getBgmTrack() : 'bgm1';
 
     modal.innerHTML = `
       <!-- Floating Arena Viewport (~80% content area, preserving background) -->
@@ -594,6 +637,42 @@ export class ArenaController {
             <h2>LOCAL PvP ARENA</h2>
           </div>
           <div class="pvp-header-actions">
+            <!-- Compact Audio Dropdown Trigger & Popover Panel (Non-Intrusive) -->
+            <div class="arena-audio-dropdown-wrap">
+              <button type="button" class="btn-open-controls btn-arena-audio-trigger" id="btn-arena-audio-toggle-panel" title="Pengaturan Audio Arena" aria-expanded="false">
+                🎵 Audio ▾
+              </button>
+              <div class="arena-audio-popover-panel" id="arena-audio-panel" style="display: none;" aria-label="Panel Pengaturan Audio Arena">
+                <div class="arena-audio-panel-header">
+                  <span>PENGATURAN AUDIO</span>
+                  <button type="button" class="btn-close-audio-panel" id="btn-close-audio-panel" title="Tutup Panel Audio">✕</button>
+                </div>
+                <div class="arena-audio-panel-row">
+                  <label for="arena-bgm-track-select" class="arena-panel-label">Musik Latar (BGM):</label>
+                  <select id="arena-bgm-track-select" class="bgm-track-select arena-bgm-select" title="Pilihan Musik Latar Arena" aria-label="Pilih Musik Latar Arena">
+                    <option value="bgm1" ${currentTrack === 'bgm1' ? 'selected' : ''}>🎵 BGM 1 — Original Dayloom</option>
+                    <option value="bgm2" ${currentTrack === 'bgm2' ? 'selected' : ''}>🎶 BGM 2 — My Original Music</option>
+                    <option value="bgm3" ${currentTrack === 'bgm3' ? 'selected' : ''}>🎸 BGM 3 — Original Music ketiga</option>
+                  </select>
+                </div>
+                <div class="arena-audio-panel-row arena-audio-toggles-row">
+                  <button type="button" class="btn-open-controls ${isMusicOn ? 'active' : ''}" id="btn-arena-bgm-toggle" title="Musik Latar ON/OFF">
+                    🎵 Musik: ${isMusicOn ? 'ON' : 'OFF'}
+                  </button>
+                  <button type="button" class="btn-open-controls ${isSfxOn ? 'active' : ''}" id="btn-arena-sfx-toggle" title="Efek Suara Pertarungan ON/OFF">
+                    🔔 SFX: ${isSfxOn ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                <div class="arena-audio-panel-row">
+                  <label for="arena-audio-volume" class="arena-panel-label">Volume Musik (BGM):</label>
+                  <div class="arena-vol-slider-wrap">
+                    <span id="arena-vol-icon">🔊</span>
+                    <input type="range" id="arena-audio-volume" min="0" max="100" value="${Math.round(currentBgmVol * 100)}" aria-label="Volume Musik Latar Arena" />
+                    <span id="arena-vol-value">${Math.round(currentBgmVol * 100)}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <button type="button" class="btn-open-controls" id="btn-arena-controls" title="Pengaturan Kontrol dan Gamepad">
               🎮 Kontrol
             </button>
@@ -614,9 +693,9 @@ export class ArenaController {
           <!-- Character Select 1v1 Overlay -->
           <div class="pvp-character-select-overlay" id="pvp-character-select-overlay">
             <div class="pvp-select-header">
-              <span class="rpg-tag" style="margin-bottom:0.4rem; display:inline-block;">DUEL LOKAL DUA PEMAIN</span>
+              <span class="rpg-tag" style="margin-bottom:0.4rem; display:inline-block;">DUEL LOKAL DUA PEMAIN (TANPA MUSUH NPC)</span>
               <h3>PILIH PETARUNG ARENA</h3>
-              <p>Player 1 (Keyboard WASD / Gamepad 1) vs Player 2 (Keyboard Panah / Gamepad 2) • Satu Layar Laptop</p>
+              <p>Player 1 (Keyboard WASD / Gamepad 1) vs Player 2 (Keyboard Panah / Gamepad 2) • Satu Layar Perangkat</p>
             </div>
 
             <div class="pvp-select-grid">
@@ -627,14 +706,7 @@ export class ArenaController {
                   <span class="player-device-tag">🎮 WASD / Pad 1</span>
                 </div>
                 <div class="select-card-picker">
-                  <button type="button" class="char-pick-btn ${p1Char === 'traveler' ? 'selected' : ''}" data-p1-char="traveler">
-                    <div class="pick-thumb">${getCharacterSVG({ outfitId: state.profile?.outfit, hatId: state.profile?.hat, rankId: rank.id, size: 48, facing: 'right' })}</div>
-                    <span class="pick-name">Traveler</span>
-                  </button>
-                  <button type="button" class="char-pick-btn ${p1Char === 'meliodas' ? 'selected' : ''}" data-p1-char="meliodas">
-                    <div class="pick-thumb">${getMeliodasSVG({ mode: 'normal', size: 48, facing: 'right' })}</div>
-                    <span class="pick-name">Meliodas</span>
-                  </button>
+                  ${renderPickerButtons('p1', p1Char, 'right')}
                 </div>
                 <div class="player-preview-display" id="p1-preview-stage">
                   ${renderKitInfo(p1Char, 'right')}
@@ -655,14 +727,7 @@ export class ArenaController {
                   <span class="player-device-tag">🎮 Panah / Pad 2</span>
                 </div>
                 <div class="select-card-picker">
-                  <button type="button" class="char-pick-btn ${p2Char === 'traveler' ? 'selected' : ''}" data-p2-char="traveler">
-                    <div class="pick-thumb">${getCharacterSVG({ outfitId: 'adventurer', hatId: 'none', rankId: rank.id, size: 48, facing: 'left' })}</div>
-                    <span class="pick-name">Traveler</span>
-                  </button>
-                  <button type="button" class="char-pick-btn ${p2Char === 'meliodas' ? 'selected' : ''}" data-p2-char="meliodas">
-                    <div class="pick-thumb">${getMeliodasSVG({ mode: 'normal', size: 48, facing: 'left' })}</div>
-                    <span class="pick-name">Meliodas</span>
-                  </button>
+                  ${renderPickerButtons('p2', p2Char, 'left')}
                 </div>
                 <div class="player-preview-display" id="p2-preview-stage">
                   ${renderKitInfo(p2Char, 'left')}
@@ -696,6 +761,110 @@ export class ArenaController {
     const btnStartPve = modal.querySelector('#btn-start-pve-sparring');
     const btnReopenChar = modal.querySelector('#btn-reopen-char-select');
     const btnArenaControls = modal.querySelector('#btn-arena-controls');
+    const btnToggleAudioPanel = modal.querySelector('#btn-arena-audio-toggle-panel');
+    const arenaAudioPanel = modal.querySelector('#arena-audio-panel');
+    const btnCloseAudioPanel = modal.querySelector('#btn-close-audio-panel');
+    const arenaBgmSelect = modal.querySelector('#arena-bgm-track-select');
+    const btnArenaBgm = modal.querySelector('#btn-arena-bgm-toggle');
+    const btnArenaSfx = modal.querySelector('#btn-arena-sfx-toggle');
+    const inputArenaVol = modal.querySelector('#arena-audio-volume');
+    const arenaVolVal = modal.querySelector('#arena-vol-value');
+
+    const toggleAudioPanel = (forceState) => {
+      if (!arenaAudioPanel) return;
+      const isOpen = arenaAudioPanel.style.display !== 'none';
+      const shouldOpen = typeof forceState === 'boolean' ? forceState : !isOpen;
+      arenaAudioPanel.style.display = shouldOpen ? 'flex' : 'none';
+      if (btnToggleAudioPanel) {
+        btnToggleAudioPanel.classList.toggle('active', shouldOpen);
+        btnToggleAudioPanel.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+      }
+    };
+
+    if (btnToggleAudioPanel) {
+      btnToggleAudioPanel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sound.playClick();
+        toggleAudioPanel();
+      });
+    }
+
+    if (btnCloseAudioPanel) {
+      btnCloseAudioPanel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sound.playClick();
+        toggleAudioPanel(false);
+      });
+    }
+
+    // Menutup panel saat klik di luar dropdown audio
+    modal.addEventListener('click', (e) => {
+      if (arenaAudioPanel && arenaAudioPanel.style.display !== 'none') {
+        if (!e.target.closest('.arena-audio-dropdown-wrap')) {
+          toggleAudioPanel(false);
+        }
+      }
+    });
+
+    if (arenaBgmSelect) {
+      arenaBgmSelect.value = typeof sound.getBgmTrack === 'function' ? sound.getBgmTrack() : 'bgm1';
+      arenaBgmSelect.addEventListener('change', (e) => {
+        e.stopPropagation();
+        if (typeof sound.setBgmTrack === 'function') {
+          sound.setBgmTrack(e.target.value);
+        }
+        if (btnArenaBgm) {
+          btnArenaBgm.classList.add('active');
+          btnArenaBgm.textContent = '🎵 Musik: ON';
+        }
+      });
+      if (typeof sound.onTrackChange === 'function') {
+        sound.onTrackChange((track) => {
+          arenaBgmSelect.value = track;
+        });
+      }
+    }
+
+    if (btnArenaBgm) {
+      btnArenaBgm.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const musicOn = typeof sound.toggleMusic === 'function' ? sound.toggleMusic() : false;
+        btnArenaBgm.classList.toggle('active', musicOn);
+        btnArenaBgm.textContent = `🎵 Musik: ${musicOn ? 'ON' : 'OFF'}`;
+        if (musicOn && this.pvpGame && this.pvpGame.running) {
+          sound.playBGM();
+        }
+      });
+    }
+
+    if (btnArenaSfx) {
+      btnArenaSfx.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sfxOn = typeof sound.toggleSFX === 'function' ? sound.toggleSFX() : false;
+        btnArenaSfx.classList.toggle('active', sfxOn);
+        btnArenaSfx.textContent = `🔔 SFX: ${sfxOn ? 'ON' : 'OFF'}`;
+      });
+    }
+
+    if (inputArenaVol) {
+      inputArenaVol.addEventListener('input', (e) => {
+        const val = Number(e.target.value) / 100;
+        if (typeof sound.setBGMVolume === 'function') {
+          sound.setBGMVolume(val);
+        }
+        if (arenaVolVal) {
+          arenaVolVal.textContent = `${Math.round(val * 100)}%`;
+        }
+      });
+      if (typeof sound.onBgmVolumeChange === 'function') {
+        sound.onBgmVolumeChange((vol) => {
+          inputArenaVol.value = Math.round(vol * 100);
+          if (arenaVolVal) {
+            arenaVolVal.textContent = `${Math.round(vol * 100)}%`;
+          }
+        });
+      }
+    }
 
     const updateReadyState = () => {
       btnP1Ready.classList.toggle('is-ready', p1Ready);
@@ -710,7 +879,7 @@ export class ArenaController {
     // P1 Character Selection
     modal.querySelectorAll('[data-p1-char]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const char = btn.getAttribute('data-p1-char');
+        const char = normalizeCharacterId(btn.getAttribute('data-p1-char'));
         if (p1Char !== char) {
           sound.playClick();
           p1Char = char;
@@ -730,7 +899,7 @@ export class ArenaController {
     // P2 Character Selection
     modal.querySelectorAll('[data-p2-char]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const char = btn.getAttribute('data-p2-char');
+        const char = normalizeCharacterId(btn.getAttribute('data-p2-char'));
         if (p2Char !== char) {
           sound.playClick();
           p2Char = char;
@@ -759,14 +928,16 @@ export class ArenaController {
 
     const handleClose = () => {
       sound.playClick();
+      sound.stopLobbyAmbience();
       if (this.pvpGame) this.pvpGame.stop();
       modal.remove();
     };
 
-    // Start 1v1 Match
+    // Start 1v1 Match (Pure Player 1 vs Player 2 — No Oni Kage Daruma)
     btnStart1v1.addEventListener('click', () => {
       if (!p1Ready || !p2Ready) return;
       sound.playClick();
+      sound.stopLobbyAmbience();
       charSelectOverlay.style.display = 'none';
       btnReopenChar.style.display = 'inline-flex';
 
@@ -808,9 +979,10 @@ export class ArenaController {
       this.pvpGame.start();
     });
 
-    // Start PvE Mode
+    // Start PvE Mode (Solo Training vs Oni Kage Daruma)
     btnStartPve.addEventListener('click', () => {
       sound.playClick();
+      sound.stopLobbyAmbience();
       charSelectOverlay.style.display = 'none';
       btnReopenChar.style.display = 'inline-flex';
 
@@ -840,6 +1012,7 @@ export class ArenaController {
     btnReopenChar.addEventListener('click', () => {
       sound.playClick();
       if (this.pvpGame) this.pvpGame.stop();
+      sound.playLobbyAmbience();
       charSelectOverlay.style.display = 'flex';
       btnReopenChar.style.display = 'none';
       p1Ready = false;
@@ -1082,8 +1255,8 @@ export class ArenaController {
 
   finishBattle(won) {
     this.stopBattleTimer();
-    const bossName = this.battle.boss.name;
-    const maxCombo = this.battle.maxCombo;
+    const bossName = this.battle.boss?.name || 'Oni Kage Daruma';
+    const maxCombo = this.battle.maxCombo || 0;
     this.battle.active = false;
 
     const state = this.getState();

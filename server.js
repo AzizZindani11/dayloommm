@@ -23,7 +23,8 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.mp3': 'audio/mpeg'
 };
 
 const server = http.createServer((req, res) => {

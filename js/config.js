@@ -288,5 +288,29 @@ export const PLAYABLE_CHARACTERS = [
     qSkillDesc: 'Gelombang api hitam-ungu merambat di tanah dan meledak vertikal saat mengenai lawan.',
     rUltimateName: 'Assault Mode',
     rUltimateDesc: 'Transformasi tempur 10 detik: wujud Assault Mode & +50% seluruh atribut tempur.'
+  },
+  {
+    id: 'void',
+    name: 'Void',
+    role: 'Pendekar Bayangan Kosong',
+    weapon: 'Sabit Kembar Dimensi',
+    combatIdentity: 'Assasin Kecepatan Tinggi • Langkah Kilat & Tebasan Celah Kosong',
+    basicName: 'Tebasan Sabit Kosong',
+    qSkillName: 'Void Rift Slash',
+    qSkillDesc: 'Menerjang menembus bayangan dengan kecepatan kilat dan menebas ruang di depan (1 Orb Energi).',
+    rUltimateName: 'Eclipse Overdrive',
+    rUltimateDesc: 'Membuka dimensi hampa selama 8 detik: lonjakan kelincahan ekstrem & pusaran sabit bayangan.'
+  },
+  {
+    id: 'lancelot',
+    name: 'Lancelot',
+    role: 'Kesatria Perang Benwick',
+    weapon: 'Busur Peri & Katana Shirojika',
+    combatIdentity: 'Hibrida Jarak Jauh & Dekat • Panah Cahaya, Katana Shirojika & Wujud Rubah Shin',
+    basicName: 'Panah Peri / Tebasan Shirojika',
+    qSkillName: 'Wujud Rubah Merah (Shin)',
+    qSkillDesc: 'Berubah menjadi rubah merah Shin yang sangat lincah (+45% Kecepatan) disertai gelombang kejut penyergap.',
+    rUltimateName: 'Shining Road',
+    rUltimateDesc: 'Teknik sihir Hazy Moon: menembakkan berkas cahaya bintang pemandu yang mengunci dan menghantam lawan.'
   }
 ];

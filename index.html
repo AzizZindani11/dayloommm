@@ -63,6 +63,18 @@
           <button type="button" class="time-btn" data-time-mode="malam" title="Suasana Malam Lentera">Malam</button>
         </div>
 
+        <div class="header-audio-suite" id="header-audio-suite" aria-label="Pengaturan Musik Latar Dayloom">
+          <select id="select-bgm-track" class="bgm-track-select" title="Pilih Musik Latar Dayloom" aria-label="Pilih Musik Latar">
+            <option value="bgm1">🎵 BGM 1 — Original Dayloom</option>
+            <option value="bgm2">🎶 BGM 2 — My Original Music</option>
+            <option value="bgm3">🎸 BGM 3 — Original Music ketiga</option>
+          </select>
+          <label class="header-bgm-vol-wrap" title="Volume Musik Latar">
+            <span class="vol-icon" id="header-vol-icon">🔊</span>
+            <input type="range" id="header-bgm-volume" min="0" max="100" value="40" aria-label="Volume Musik Latar (BGM)" />
+          </label>
+        </div>
+
         <button type="button" class="btn-pixel btn-secondary btn-sm" id="btn-toggle-sound">
           <span>Suara Aktif</span>
         </button>

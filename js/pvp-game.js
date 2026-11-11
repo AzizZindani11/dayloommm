@@ -15,13 +15,57 @@
  * Klik Kiri: Basic Attack | Q: Skill | R: Ultimate | Klik Kanan: Kosong
  */
 
-import { getCharacterSVG, getMeliodasSVG, getBossSVG } from './art.js';
+import { getCharacterSVG, getMeliodasSVG, getVoidSVG, getLancelotSVG, getBossSVG } from './art.js';
 import { sound } from './audio.js';
 import { InputManager } from './input.js';
 
+export const VALID_ARENA_CHARACTERS = ['traveler', 'meliodas', 'void', 'lancelot'];
+
+export function normalizeCharacterId(charId) {
+  return VALID_ARENA_CHARACTERS.includes(charId) ? charId : 'traveler';
+}
+
+export function getCharacterBaseStats(characterId = 'traveler') {
+  const id = normalizeCharacterId(characterId);
+  if (id === 'meliodas') {
+    return {
+      moveSpeed: 577.5,
+      basicAttackDamage: 18,
+      skillDamage: 44,
+      jumpHeight: 212.25,
+      dashSpeed: 760
+    };
+  }
+  if (id === 'void') {
+    return {
+      moveSpeed: 720.0, // Rebalanced: +25% lebih cepat, lincah & responsif dibanding karakter standar
+      basicAttackDamage: 16,
+      skillDamage: 40,
+      jumpHeight: 226.0,
+      dashSpeed: 930
+    };
+  }
+  if (id === 'lancelot') {
+    return {
+      moveSpeed: 605.0,
+      basicAttackDamage: 16,
+      skillDamage: 38,
+      jumpHeight: 218.0,
+      dashSpeed: 810
+    };
+  }
+  return {
+    moveSpeed: 577.5,
+    basicAttackDamage: 14,
+    skillDamage: 42,
+    jumpHeight: 212.25,
+    dashSpeed: 760
+  };
+}
 
 function createInitialPlayerState(characterId = 'traveler', spawnOptions = {}) {
-  const isMel = characterId === 'meliodas';
+  const cleanChar = normalizeCharacterId(characterId);
+  const base = getCharacterBaseStats(cleanChar);
   const posX = spawnOptions.x !== undefined ? spawnOptions.x : 340;
   const posY = spawnOptions.y !== undefined ? spawnOptions.y : 500;
   const facingDir = spawnOptions.facing || 'right';
@@ -43,14 +87,15 @@ function createInitialPlayerState(characterId = 'traveler', spawnOptions = {}) {
     dashTimer: 0,
     dashCooldown: 0,
 
-    // Basic Attack State & Combo (Traveler Staff / Meliodas Lostvayne)
+    // Basic Attack State & Combo (Traveler Staff / Meliodas Lostvayne / Void Scythe / Lancelot Bow & Shirojika)
     attackTimer: 0,
     attackDuration: 0.21,
     attackCooldown: 0,
     comboStep: 0,
     comboResetTimer: 0,
+    weaponMode: 'bow', // 'bow' | 'sword' (khusus Lancelot: Busur Peri vs Katana Shirojika)
 
-    // Skill Q State (Phoenix Blast / Hellblaze)
+    // Skill Q State
     qCastTimer: 0,
     qCooldown: 0,
 
@@ -77,21 +122,35 @@ function createInitialPlayerState(characterId = 'traveler', spawnOptions = {}) {
       multiplier: 1.5
     },
 
-    // Base Stats (100%) & Effective Stats (100% Normal / 150% Assault Mode)
-    baseStats: {
-      moveSpeed: 577.5,
-      basicAttackDamage: isMel ? 18 : 14,
-      skillDamage: isMel ? 44 : 42,
-      jumpHeight: 212.25,
-      dashSpeed: 760
+    // Void Ultimate R: Eclipse Overdrive (8-Second High-Speed Dimensional State)
+    voidOverdrive: {
+      active: false,
+      duration: 8.0,
+      timeLeft: 0,
+      transformAnimTimer: 0,
+      speedMultiplier: 1.22,
+      damageMultiplier: 1.25
     },
-    stats: {
-      moveSpeed: 577.5,
-      basicAttackDamage: isMel ? 18 : 14,
-      skillDamage: isMel ? 44 : 42,
-      jumpHeight: 212.25,
-      dashSpeed: 760
+
+    // Lancelot Skill Q: Wujud Rubah Merah "Shin" (Agile Fox Transformation + Disruption)
+    shinFoxMode: {
+      active: false,
+      duration: 4.5,
+      timeLeft: 0,
+      transformAnimTimer: 0,
+      speedMultiplier: 1.45
     },
+
+    // Lancelot Ultimate R: Shining Road (Hazy Moon Celestial Homing Beam)
+    shiningRoad: {
+      active: false,
+      duration: 1.2,
+      timeLeft: 0
+    },
+
+    // Base Stats & Effective Stats
+    baseStats: { ...base },
+    stats: { ...base },
 
     // Combat Energy Systems
     hp: 120,
@@ -101,9 +160,10 @@ function createInitialPlayerState(characterId = 'traveler', spawnOptions = {}) {
     ultimateCharge: 100,
     maxUltimate: 100,
 
-    // Hit & Damage State
+    // Hit, Crowd-Control & Damage State
     hurtTimer: 0,
     burnVisualTimer: 0,
+    slowTimer: 0,
     invulnerableTimer: 0
   };
 }
@@ -122,10 +182,10 @@ export class LocalPvPArenaGame {
     this.onClose = onClose;
 
     const initialChar = characterId || this.profile?.selectedCharacter || 'traveler';
-    this.characterId = initialChar === 'meliodas' ? 'meliodas' : 'traveler';
+    this.characterId = normalizeCharacterId(initialChar);
     this.characterIdP1 = this.characterId;
-    this.characterIdP2 = characterIdP2 === 'meliodas' ? 'meliodas' : 'traveler';
-    this.gameMode = gameMode; // 'pvp' (1v1) | 'pve' (sparring with Oni)
+    this.characterIdP2 = normalizeCharacterId(characterIdP2);
+    this.gameMode = gameMode === 'pve' ? 'pve' : 'pvp'; // 'pvp' (1v1 Murni Tanpa NPC) | 'pve' (Solo Training vs Oni)
 
     this.canvas = null;
     this.ctx = null;
@@ -146,43 +206,58 @@ export class LocalPvPArenaGame {
     this.camY = 0;
     this.envTime = 0;
 
-    // Status Karakter Pemain 1 (Traveler / Meliodas, spawn kiri)
+    // Status Karakter Pemain 1 (spawn kiri)
     this.player1 = createInitialPlayerState(this.characterIdP1, { x: 340, y: 500, facing: 'right' });
     this.player = this.player1; // 100% Backward Compatibility Alias
 
-    // Status Karakter Pemain 2 (Traveler / Meliodas, spawn kanan)
+    // Status Karakter Pemain 2 (spawn kanan)
     this.player2 = createInitialPlayerState(this.characterIdP2, { x: 920, y: 500, facing: 'left' });
 
     this.syncCharacterStats(1);
     this.syncCharacterStats(2);
 
-    // Lawan Uji Tanding Arena (Oni Penundaan)
-    this.enemies = [
-      {
-        id: 'arena_sparring_oni',
-        name: 'Oni Penundaan',
-        x: 840,
-        y: 516,
-        vx: -75,
-        vy: 0,
-        width: 56,
-        height: 64,
-        hp: 240,
-        maxHp: 240,
-        patrolMinX: 670,
-        patrolMaxX: 1060,
-        hurtTimer: 0,
-        burnVisualTimer: 0
-      }
-    ];
+    // Lawan Uji Tanding Arena (Oni Kage Daruma) HANYA diinisialisasi pada mode Solo Training ('pve').
+    // Pada mode Local PvP ('pvp'), this.enemies wajib kosong [] agar murni pertarungan Player 1 vs Player 2!
+    this.enemies = this.gameMode === 'pve'
+      ? [
+          {
+            id: 'arena_sparring_oni',
+            name: 'Oni Penundaan',
+            x: 840,
+            y: 516,
+            vx: -75,
+            vy: 0,
+            width: 56,
+            height: 64,
+            hp: 240,
+            maxHp: 240,
+            patrolMinX: 670,
+            patrolMaxX: 1060,
+            hurtTimer: 0,
+            burnVisualTimer: 0
+          }
+        ]
+      : [];
 
-    // Sprite Karakter Resmi Dayloom (Traveler Restored + Meliodas Normal & Assault Mode)
+    // Sprite Karakter Resmi Dayloom (Traveler, Meliodas, Void, Lancelot + Shin Fox)
     this.travelerSpriteRight = new Image();
     this.travelerSpriteLeft = new Image();
     this.meliodasNormalRight = new Image();
     this.meliodasNormalLeft = new Image();
     this.meliodasAssaultRight = new Image();
     this.meliodasAssaultLeft = new Image();
+    this.voidNormalRight = new Image();
+    this.voidNormalLeft = new Image();
+    this.voidOverdriveRight = new Image();
+    this.voidOverdriveLeft = new Image();
+    this.lancelotHumanRight = new Image();
+    this.lancelotHumanLeft = new Image();
+    this.lancelotSwordRight = new Image();
+    this.lancelotSwordLeft = new Image();
+    this.lancelotShinRight = new Image();
+    this.lancelotShinLeft = new Image();
+    this.lancelotShiningRight = new Image();
+    this.lancelotShiningLeft = new Image();
     this.charSpriteRight = this.travelerSpriteRight;
     this.charSpriteLeft = this.travelerSpriteLeft;
     this.enemySprite = new Image();
@@ -200,6 +275,7 @@ export class LocalPvPArenaGame {
     this.phoenixProjectiles = [];
     this.hellblazeWaves = [];
     this.hellblazeEruptions = [];
+    this.shiningRoadBeams = [];
     this.slashEffects = [];
     this.lostvayneSlashes = [];
     this.particles = [];
@@ -277,10 +353,10 @@ export class LocalPvPArenaGame {
   }
 
   /**
-   * Mengatur karakter aktif ('traveler' | 'meliodas') dan menyinkronkan baseStats, sprite, serta mereset efek aktif.
+   * Mengatur karakter aktif ('traveler' | 'meliodas' | 'void' | 'lancelot') dan menyinkronkan baseStats, sprite, serta mereset efek aktif.
    */
   setCharacter(characterId, playerNum = 1) {
-    const nextChar = characterId === 'meliodas' ? 'meliodas' : 'traveler';
+    const nextChar = normalizeCharacterId(characterId);
     if (playerNum === 1) {
       this.characterId = nextChar;
       this.characterIdP1 = nextChar;
@@ -294,39 +370,72 @@ export class LocalPvPArenaGame {
     p.assaultMode.active = false;
     p.assaultMode.timeLeft = 0;
     p.assaultMode.transformAnimTimer = 0;
+    if (p.voidOverdrive) {
+      p.voidOverdrive.active = false;
+      p.voidOverdrive.timeLeft = 0;
+    }
+    if (p.shinFoxMode) {
+      p.shinFoxMode.active = false;
+      p.shinFoxMode.timeLeft = 0;
+      p.shinFoxMode.transformAnimTimer = 0;
+    }
+    if (p.shiningRoad) {
+      p.shiningRoad.active = false;
+      p.shiningRoad.timeLeft = 0;
+    }
+    p.weaponMode = 'bow';
     p.state = 'idle';
     p.attackTimer = 0;
     p.qCastTimer = 0;
     p.rCastTimer = 0;
     p.comboStep = 0;
 
-    p.baseStats = {
-      moveSpeed: 577.5,
-      basicAttackDamage: nextChar === 'meliodas' ? 18 : 14,
-      skillDamage: nextChar === 'meliodas' ? 44 : 42,
-      jumpHeight: 212.25,
-      dashSpeed: 760
-    };
+    p.baseStats = getCharacterBaseStats(nextChar);
 
     this.syncCharacterStats(playerNum);
     this.updateActiveSpriteRefs();
   }
 
   /**
-   * Menyinkronkan `player.stats` berdasarkan `player.baseStats` dan status `assaultMode.active`.
-   * Menjamin peningkatan tepat 150% (1.5x) selama Assault Mode dan pemulihan 100% tanpa stacking saat berakhir.
+   * Menyinkronkan `player.stats` berdasarkan `player.baseStats`, wujud transformasi aktif
+   * (Meliodas Assault Mode 150%, Void Eclipse Overdrive, Lancelot Wujud Rubah Merah Shin +45% Kecepatan),
+   * serta efek crowd-control slow.
    */
   syncCharacterStats(playerNum = 1) {
     const p = playerNum === 1 ? this.player1 : this.player2;
     if (!p) return;
     const charId = playerNum === 1 ? this.characterIdP1 : this.characterIdP2;
-    const mult = (charId === 'meliodas' && p.assaultMode.active) ? p.assaultMode.multiplier : 1.0;
 
-    p.stats.moveSpeed = p.baseStats.moveSpeed * mult;
-    p.stats.basicAttackDamage = p.baseStats.basicAttackDamage * mult;
-    p.stats.skillDamage = p.baseStats.skillDamage * mult;
-    p.stats.jumpHeight = p.baseStats.jumpHeight * mult;
-    p.stats.dashSpeed = p.baseStats.dashSpeed * mult;
+    let speedMult = 1.0;
+    let dmgMult = 1.0;
+    let jumpMult = 1.0;
+    let dashMult = 1.0;
+
+    if (charId === 'meliodas' && p.assaultMode?.active) {
+      speedMult = p.assaultMode.multiplier;
+      dmgMult = p.assaultMode.multiplier;
+      jumpMult = p.assaultMode.multiplier;
+      dashMult = p.assaultMode.multiplier;
+    } else if (charId === 'void' && p.voidOverdrive?.active) {
+      speedMult = p.voidOverdrive.speedMultiplier || 1.22;
+      dmgMult = p.voidOverdrive.damageMultiplier || 1.25;
+      jumpMult = 1.08;
+      dashMult = 1.2;
+    } else if (charId === 'lancelot' && p.shinFoxMode?.active) {
+      speedMult = p.shinFoxMode.speedMultiplier || 1.45;
+      jumpMult = 1.12;
+      dashMult = 1.28;
+    }
+
+    if (p.slowTimer > 0) {
+      speedMult *= 0.72;
+    }
+
+    p.stats.moveSpeed = p.baseStats.moveSpeed * speedMult;
+    p.stats.basicAttackDamage = p.baseStats.basicAttackDamage * dmgMult;
+    p.stats.skillDamage = p.baseStats.skillDamage * dmgMult;
+    p.stats.jumpHeight = p.baseStats.jumpHeight * jumpMult;
+    p.stats.dashSpeed = p.baseStats.dashSpeed * dashMult;
   }
 
   updateActiveSpriteRefs() {
@@ -338,6 +447,25 @@ export class LocalPvPArenaGame {
         this.charSpriteRight = this.meliodasNormalRight;
         this.charSpriteLeft = this.meliodasNormalLeft;
       }
+    } else if (this.characterIdP1 === 'void') {
+      if (this.player1.voidOverdrive?.active) {
+        this.charSpriteRight = this.voidOverdriveRight;
+        this.charSpriteLeft = this.voidOverdriveLeft;
+      } else {
+        this.charSpriteRight = this.voidNormalRight;
+        this.charSpriteLeft = this.voidNormalLeft;
+      }
+    } else if (this.characterIdP1 === 'lancelot') {
+      if (this.player1.shinFoxMode?.active) {
+        this.charSpriteRight = this.lancelotShinRight;
+        this.charSpriteLeft = this.lancelotShinLeft;
+      } else if (this.player1.shiningRoad?.active) {
+        this.charSpriteRight = this.lancelotShiningRight;
+        this.charSpriteLeft = this.lancelotShiningLeft;
+      } else {
+        this.charSpriteRight = this.lancelotHumanRight;
+        this.charSpriteLeft = this.lancelotHumanLeft;
+      }
     } else {
       this.charSpriteRight = this.travelerSpriteRight;
       this.charSpriteLeft = this.travelerSpriteLeft;
@@ -345,24 +473,38 @@ export class LocalPvPArenaGame {
   }
 
   /**
-   * PHASE 1 & PHASE 2 — Inisialisasi Sprite In-Game:
-   * - Mengembalikan Traveler in-game ke `getCharacterSVG` resmi Dayloom (versi Argon sebelumnya yang disukai).
-   * - Memuat sprite Meliodas Normal dan Assault Mode (`getMeliodasSVG`) dengan skala & kualitas sepadan.
+   * Inisialisasi Sprite In-Game untuk Traveler, Meliodas, Void, dan Lancelot (Human, Shirojika, Shin Fox, Shining Road).
    */
   initArenaSprites() {
     const outfitId = this.profile?.outfit || 'wanderer';
     const hatId = this.profile?.hat || 'straw_hat';
     const rankId = this.rank?.id || 'epic';
 
-    // Phase 1: Restored Traveler SVG from art.js (exact earlier Argon version)
+    // 1. Traveler SVGs
     const travRight = getCharacterSVG({ outfitId, hatId, rankId, size: 88, facing: 'right' }).trim();
     const travLeft = getCharacterSVG({ outfitId, hatId, rankId, size: 88, facing: 'left' }).trim();
 
-    // Phase 2: Meliodas Normal & Assault Mode SVGs
+    // 2. Meliodas Normal & Assault Mode SVGs
     const melNormalRight = getMeliodasSVG({ mode: 'normal', size: 88, facing: 'right' }).trim();
     const melNormalLeft = getMeliodasSVG({ mode: 'normal', size: 88, facing: 'left' }).trim();
     const melAssaultRight = getMeliodasSVG({ mode: 'assault', size: 88, facing: 'right' }).trim();
     const melAssaultLeft = getMeliodasSVG({ mode: 'assault', size: 88, facing: 'left' }).trim();
+
+    // 3. Void Normal & Overdrive SVGs
+    const voidNormRight = getVoidSVG({ mode: 'normal', size: 88, facing: 'right' }).trim();
+    const voidNormLeft = getVoidSVG({ mode: 'normal', size: 88, facing: 'left' }).trim();
+    const voidOverRight = getVoidSVG({ mode: 'overdrive', size: 88, facing: 'right' }).trim();
+    const voidOverLeft = getVoidSVG({ mode: 'overdrive', size: 88, facing: 'left' }).trim();
+
+    // 4. Lancelot Human (Fairy Bow), Shirojika Sword, Shin (Red Fox), & Shining Road SVGs
+    const lanHumanRight = getLancelotSVG({ mode: 'human', size: 88, facing: 'right' }).trim();
+    const lanHumanLeft = getLancelotSVG({ mode: 'human', size: 88, facing: 'left' }).trim();
+    const lanSwordRight = getLancelotSVG({ mode: 'sword', size: 88, facing: 'right' }).trim();
+    const lanSwordLeft = getLancelotSVG({ mode: 'sword', size: 88, facing: 'left' }).trim();
+    const lanShinRight = getLancelotSVG({ mode: 'shin', size: 88, facing: 'right' }).trim();
+    const lanShinLeft = getLancelotSVG({ mode: 'shin', size: 88, facing: 'left' }).trim();
+    const lanShiningRight = getLancelotSVG({ mode: 'shining_road', size: 88, facing: 'right' }).trim();
+    const lanShiningLeft = getLancelotSVG({ mode: 'shining_road', size: 88, facing: 'left' }).trim();
 
     const bossSvg = getBossSVG('sloth_oni', 84).trim();
 
@@ -372,12 +514,17 @@ export class LocalPvPArenaGame {
       if (loadedCount >= 2) this.spritesReady = true;
     };
 
-    this.travelerSpriteRight.onload = onDone;
-    this.travelerSpriteLeft.onload = onDone;
-    this.meliodasNormalRight.onload = onDone;
-    this.meliodasNormalLeft.onload = onDone;
-    this.meliodasAssaultRight.onload = onDone;
-    this.meliodasAssaultLeft.onload = onDone;
+    [
+      this.travelerSpriteRight, this.travelerSpriteLeft,
+      this.meliodasNormalRight, this.meliodasNormalLeft,
+      this.meliodasAssaultRight, this.meliodasAssaultLeft,
+      this.voidNormalRight, this.voidNormalLeft,
+      this.voidOverdriveRight, this.voidOverdriveLeft,
+      this.lancelotHumanRight, this.lancelotHumanLeft,
+      this.lancelotSwordRight, this.lancelotSwordLeft,
+      this.lancelotShinRight, this.lancelotShinLeft,
+      this.lancelotShiningRight, this.lancelotShiningLeft
+    ].forEach(img => { img.onload = onDone; });
 
     this.travelerSpriteRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(travRight);
     this.travelerSpriteLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(travLeft);
@@ -385,6 +532,18 @@ export class LocalPvPArenaGame {
     this.meliodasNormalLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(melNormalLeft);
     this.meliodasAssaultRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(melAssaultRight);
     this.meliodasAssaultLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(melAssaultLeft);
+    this.voidNormalRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(voidNormRight);
+    this.voidNormalLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(voidNormLeft);
+    this.voidOverdriveRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(voidOverRight);
+    this.voidOverdriveLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(voidOverLeft);
+    this.lancelotHumanRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanHumanRight);
+    this.lancelotHumanLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanHumanLeft);
+    this.lancelotSwordRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanSwordRight);
+    this.lancelotSwordLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanSwordLeft);
+    this.lancelotShinRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanShinRight);
+    this.lancelotShinLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanShinLeft);
+    this.lancelotShiningRight.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanShiningRight);
+    this.lancelotShiningLeft.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lanShiningLeft);
     this.enemySprite.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(bossSvg);
 
     this.updateActiveSpriteRefs();
@@ -532,8 +691,8 @@ export class LocalPvPArenaGame {
 
     if (p.dashCooldown <= 0 && p.dashTimer <= 0) {
       this.syncCharacterStats(playerNum);
-      p.dashTimer = 0.17;
-      p.dashCooldown = 0.52;
+      p.dashTimer = charId === 'void' ? 0.18 : (charId === 'lancelot' && p.shinFoxMode?.active ? 0.19 : 0.17);
+      p.dashCooldown = charId === 'void' ? 0.36 : (charId === 'lancelot' && p.shinFoxMode?.active ? 0.34 : 0.52);
       sound.playClick();
 
       const dir = p.facing === 'right' ? 1 : -1;
@@ -541,16 +700,20 @@ export class LocalPvPArenaGame {
       p.vy = 0;
 
       const isAssault = charId === 'meliodas' && p.assaultMode.active;
+      const isVoid = charId === 'void';
+      const isShin = charId === 'lancelot' && p.shinFoxMode?.active;
       for (let i = 0; i < 4; i++) {
+        let trailCol = i % 2 === 0 ? '#E8A5B5' : '#FFE08A';
+        if (isAssault) trailCol = i % 2 === 0 ? '#6B21A8' : '#10B981';
+        else if (isVoid) trailCol = i % 2 === 0 ? '#38BDF8' : '#6D28D9';
+        else if (isShin) trailCol = i % 2 === 0 ? '#E11D48' : '#FDE047';
         this.particles.push({
           x: p.x + p.width / 2 - dir * i * 16,
           y: p.y + p.height / 2,
           vx: -dir * 20,
           vy: (Math.random() - 0.5) * 15,
           alpha: 0.68 - i * 0.12,
-          color: isAssault
-            ? (i % 2 === 0 ? '#6B21A8' : '#10B981')
-            : (i % 2 === 0 ? '#E8A5B5' : '#FFE08A'),
+          color: trailCol,
           size: 24 - i * 3,
           life: 0.22
         });
@@ -559,9 +722,11 @@ export class LocalPvPArenaGame {
   }
 
   /**
-   * Basic Attack:
+   * Basic Attack Dispatcher:
    * - Traveler: Tebasan Tongkat Lentera + Proyektil Sabit Cahaya
-   * - Meliodas: Tebasan Pedang Jarak Dekat Lostvayne (3-Hit Combo Cepat, Bobot Fisik, & Suara Tebasan Pedang)
+   * - Meliodas: Tebasan Pedang Jarak Dekat Lostvayne (3-Hit Combo Cepat)
+   * - Void: Tebasan Sabit Kembar Dimensi Cepat
+   * - Lancelot: Panah Busur Peri Presisi Tinggi / Tebasan Katana Shirojika Jarak Dekat / Sergapan Rubah Shin
    */
   tryAttack(playerNum = 1) {
     if (this.matchOver) return false;
@@ -574,6 +739,12 @@ export class LocalPvPArenaGame {
 
     if (charId === 'meliodas') {
       return this.tryMeliodasLostvayneAttack(playerNum);
+    }
+    if (charId === 'void') {
+      return this.tryVoidBasicAttack(playerNum);
+    }
+    if (charId === 'lancelot') {
+      return this.tryLancelotBasicAttack(playerNum);
     }
 
     p.attackTimer = p.attackDuration;
@@ -607,6 +778,220 @@ export class LocalPvPArenaGame {
       maxLife: 0.78,
       color: '#FFE08A',
       trailColor: '#E8A5B5'
+    });
+
+    return true;
+  }
+
+  /**
+   * Void Basic Attack: Tebasan Sabit Kembar Dimensi Berkecepatan Tinggi
+   */
+  tryVoidBasicAttack(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p) return false;
+    const opponent = playerNum === 1 ? this.player2 : this.player1;
+    const isOver = Boolean(p.voidOverdrive?.active);
+
+    p.attackDuration = 0.16;
+    p.attackTimer = p.attackDuration;
+    p.attackCooldown = isOver ? 0.14 : 0.18;
+    p.state = 'attacking';
+    p.comboStep = (p.comboStep + 1) % 3;
+    p.comboResetTimer = 0.6;
+
+    sound.playVoidSlash();
+
+    const dir = p.facing === 'right' ? 1 : -1;
+    if (p.grounded) {
+      p.vx += dir * (isOver ? 160 : 125);
+    }
+
+    const slashX = dir > 0 ? p.x + p.width + 18 : p.x - 18;
+    const slashY = p.y + p.height * 0.45;
+    const reach = isOver ? 102 : 88;
+
+    this.lostvayneSlashes.push({
+      x: slashX,
+      y: slashY,
+      dir,
+      comboStep: p.comboStep,
+      radius: isOver ? 66 : 56,
+      progress: 0,
+      duration: 0.16,
+      assault: true
+    });
+
+    const hitMinX = dir > 0 ? p.x + p.width * 0.25 : p.x - reach;
+    const hitMaxX = dir > 0 ? p.x + p.width + reach : p.x + p.width * 0.75;
+    const hitMinY = p.y - 18;
+    const hitMaxY = p.y + p.height + 14;
+    const dmg = Math.round(p.stats.basicAttackDamage);
+
+    if (this.gameMode === 'pvp' && opponent) {
+      if (opponent.x + opponent.width >= hitMinX && opponent.x <= hitMaxX && opponent.y + opponent.height >= hitMinY && opponent.y <= hitMaxY) {
+        this.applyDamageToPlayer(opponent, dmg, '#38BDF8', false);
+        this.grantOnHitEnergy(0.42, 10, playerNum);
+        this.spawnLostvayneHitSparks(opponent.x + opponent.width / 2, opponent.y + opponent.height * 0.45, true);
+      }
+    } else if (this.gameMode === 'pve') {
+      for (const enemy of this.enemies) {
+        if (enemy.x + enemy.width >= hitMinX && enemy.x <= hitMaxX && enemy.y + enemy.height >= hitMinY && enemy.y <= hitMaxY) {
+          this.applyDamageToEnemy(enemy, dmg, '#38BDF8', false);
+          this.grantOnHitEnergy(0.42, 10, playerNum);
+          this.spawnLostvayneHitSparks(enemy.x + enemy.width / 2, enemy.y + enemy.height * 0.45, true);
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Lancelot Basic Attack:
+   * - Dalam wujud Rubah Merah "Shin": Sergapan Cakar Roh Rubah cepat.
+   * - Dalam wujud Manusia jarak dekat (<= 94px dari lawan): Menghunus katana legendaris SHIROJIKA ("White Deer") untuk tebasan kilat.
+   * - Dalam wujud Manusia jarak menengah/jauh: Menarik Busur Peri Cahaya (Fairy Bow) dan melepaskan anak panah bintang berkecepatan tinggi.
+   */
+  tryLancelotBasicAttack(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p) return false;
+    const opponent = playerNum === 1 ? this.player2 : this.player1;
+    const dir = p.facing === 'right' ? 1 : -1;
+
+    // 1. Jika sedang dalam wujud Rubah Merah "Shin": Sergapan Roh Rubah Lincah
+    if (p.shinFoxMode?.active) {
+      p.attackDuration = 0.16;
+      p.attackTimer = p.attackDuration;
+      p.attackCooldown = 0.17;
+      p.state = 'attacking';
+      sound.playShirojikaSlash();
+
+      if (p.grounded) {
+        p.vx += dir * 185;
+      }
+
+      const spawnX = dir > 0 ? p.x + p.width + 14 : p.x - 14;
+      const spawnY = p.y + p.height * 0.55;
+      this.slashEffects.push({
+        x: spawnX,
+        y: spawnY,
+        dir,
+        radius: 52,
+        progress: 0,
+        duration: 0.15
+      });
+
+      const reach = 92;
+      const hitMinX = dir > 0 ? p.x + p.width * 0.2 : p.x - reach;
+      const hitMaxX = dir > 0 ? p.x + p.width + reach : p.x + p.width * 0.8;
+      const hitMinY = p.y - 16;
+      const hitMaxY = p.y + p.height + 14;
+      const foxDmg = Math.round(p.stats.basicAttackDamage + 2);
+
+      if (this.gameMode === 'pvp' && opponent) {
+        if (opponent.x + opponent.width >= hitMinX && opponent.x <= hitMaxX && opponent.y + opponent.height >= hitMinY && opponent.y <= hitMaxY) {
+          this.applyDamageToPlayer(opponent, foxDmg, '#FB7185', false);
+          this.grantOnHitEnergy(0.45, 11, playerNum);
+          this.spawnFireBurst(opponent.x + opponent.width / 2, opponent.y + opponent.height * 0.5, 10, 140);
+        }
+      } else if (this.gameMode === 'pve') {
+        for (const enemy of this.enemies) {
+          if (enemy.x + enemy.width >= hitMinX && enemy.x <= hitMaxX && enemy.y + enemy.height >= hitMinY && enemy.y <= hitMaxY) {
+            this.applyDamageToEnemy(enemy, foxDmg, '#FB7185', false);
+            this.grantOnHitEnergy(0.45, 11, playerNum);
+            this.spawnFireBurst(enemy.x + enemy.width / 2, enemy.y + enemy.height * 0.5, 10, 140);
+          }
+        }
+      }
+      return true;
+    }
+
+    // 2. Cek apakah ada lawan pada jarak dekat untuk tebasan katana legendaris SHIROJIKA ("White Deer")
+    let targetInMeleeRange = false;
+    const pCenterX = p.x + p.width / 2;
+    const pCenterY = p.y + p.height / 2;
+    if (this.gameMode === 'pvp' && opponent) {
+      const dx = (opponent.x + opponent.width / 2) - pCenterX;
+      const dy = Math.abs((opponent.y + opponent.height / 2) - pCenterY);
+      if (Math.abs(dx) <= 96 && dy <= 76 && ((dir > 0 && dx >= -18) || (dir < 0 && dx <= 18))) {
+        targetInMeleeRange = true;
+      }
+    } else if (this.gameMode === 'pve') {
+      for (const enemy of this.enemies) {
+        const dx = (enemy.x + enemy.width / 2) - pCenterX;
+        const dy = Math.abs((enemy.y + enemy.height / 2) - pCenterY);
+        if (Math.abs(dx) <= 96 && dy <= 76 && ((dir > 0 && dx >= -18) || (dir < 0 && dx <= 18))) {
+          targetInMeleeRange = true;
+          break;
+        }
+      }
+    }
+
+    if (targetInMeleeRange) {
+      // Tebasan Katana SHIROJIKA ("White Deer" pemberian Nanashi)
+      p.weaponMode = 'sword';
+      p.attackDuration = 0.18;
+      p.attackTimer = p.attackDuration;
+      p.attackCooldown = 0.19;
+      p.state = 'attacking';
+      p.comboStep = (p.comboStep + 1) % 3;
+      p.comboResetTimer = 0.65;
+      sound.playShirojikaSlash();
+
+      const slashX = dir > 0 ? p.x + p.width + 18 : p.x - 18;
+      const slashY = p.y + p.height * 0.45;
+      this.slashEffects.push({
+        x: slashX,
+        y: slashY,
+        dir,
+        radius: 62,
+        progress: 0,
+        duration: 0.18,
+        shirojika: true
+      });
+
+      const shirojikaDmg = Math.round(p.stats.basicAttackDamage + 3);
+      if (this.gameMode === 'pvp' && opponent) {
+        this.applyDamageToPlayer(opponent, shirojikaDmg, '#38BDF8', false);
+        this.grantOnHitEnergy(0.44, 11, playerNum);
+        this.spawnDust(opponent.x + opponent.width / 2, opponent.y + opponent.height * 0.45, '#E0F2FE', 10);
+      } else if (this.gameMode === 'pve') {
+        for (const enemy of this.enemies) {
+          const dx = Math.abs((enemy.x + enemy.width / 2) - pCenterX);
+          if (dx <= 105) {
+            this.applyDamageToEnemy(enemy, shirojikaDmg, '#38BDF8', false);
+            this.grantOnHitEnergy(0.44, 11, playerNum);
+            this.spawnDust(enemy.x + enemy.width / 2, enemy.y + enemy.height * 0.45, '#E0F2FE', 10);
+          }
+        }
+      }
+      return true;
+    }
+
+    // 3. Mode Standar Jarak Jauh: Tembakan Busur Peri Cahaya (Fairy Bow High-Precision Arrow)
+    p.weaponMode = 'bow';
+    p.attackDuration = 0.20;
+    p.attackTimer = p.attackDuration;
+    p.attackCooldown = 0.22;
+    p.state = 'attacking';
+    sound.playBowArrow();
+
+    const spawnX = dir > 0 ? p.x + p.width + 12 : p.x - 12;
+    const spawnY = p.y + p.height * 0.44;
+
+    this.projectiles.push({
+      ownerPlayer: playerNum,
+      isLancelotArrow: true,
+      x: spawnX + dir * 10,
+      y: spawnY,
+      vx: dir * 880,
+      dir,
+      radius: 16,
+      damage: Math.round(p.stats.basicAttackDamage),
+      life: 0.92,
+      maxLife: 0.92,
+      color: '#38BDF8',
+      trailColor: '#FEF08A'
     });
 
     return true;
@@ -682,18 +1067,20 @@ export class LocalPvPArenaGame {
       }
     }
 
-    // 2. Cek benturan terhadap musuh PvE
-    for (const enemy of this.enemies) {
-      const ex1 = enemy.x;
-      const ex2 = enemy.x + enemy.width;
-      const ey1 = enemy.y;
-      const ey2 = enemy.y + enemy.height;
+    // 2. Cek benturan terhadap musuh PvE (HANYA jika mode pve)
+    if (this.gameMode === 'pve') {
+      for (const enemy of this.enemies) {
+        const ex1 = enemy.x;
+        const ex2 = enemy.x + enemy.width;
+        const ey1 = enemy.y;
+        const ey2 = enemy.y + enemy.height;
 
-      if (ex2 >= hitMinX && ex1 <= hitMaxX && ey2 >= hitMinY && ey1 <= hitMaxY) {
-        this.applyDamageToEnemy(enemy, dmg, dmgColor, false);
-        this.grantOnHitEnergy(0.42, 10, playerNum);
-        this.spawnLostvayneHitSparks(enemy.x + enemy.width / 2, enemy.y + enemy.height * 0.45, isAssault);
-        connected = true;
+        if (ex2 >= hitMinX && ex1 <= hitMaxX && ey2 >= hitMinY && ey1 <= hitMaxY) {
+          this.applyDamageToEnemy(enemy, dmg, dmgColor, false);
+          this.grantOnHitEnergy(0.42, 10, playerNum);
+          this.spawnLostvayneHitSparks(enemy.x + enemy.width / 2, enemy.y + enemy.height * 0.45, isAssault);
+          connected = true;
+        }
       }
     }
 
@@ -724,6 +1111,8 @@ export class LocalPvPArenaGame {
    * Dispatcher Skill Q:
    * - Traveler: Phoenix Blast
    * - Meliodas: Hellblaze (Gelombang Api Tanah + Erupsi Vertikal)
+   * - Void: Void Rift Slash (Terjangan Tebasan Dimensi)
+   * - Lancelot: Wujud Rubah Merah "Shin" (Transformasi Rubah Lincah + Gelombang Kejut Penyergap)
    */
   trySkillQ(playerNum = 1) {
     if (this.matchOver) return false;
@@ -731,7 +1120,152 @@ export class LocalPvPArenaGame {
     if (charId === 'meliodas') {
       return this.tryHellblaze(playerNum);
     }
+    if (charId === 'void') {
+      return this.tryVoidRiftSlash(playerNum);
+    }
+    if (charId === 'lancelot') {
+      return this.tryLancelotShinTransform(playerNum);
+    }
     return this.tryPhoenixBlast(playerNum);
+  }
+
+  /**
+   * Void Skill Q: VOID RIFT SLASH
+   * Menerjang menembus celah dimensi dengan kecepatan kilat dan menebas lawan di jalurnya.
+   */
+  tryVoidRiftSlash(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p || p.energyPips < 1 || p.qCooldown > 0) return false;
+
+    this.syncCharacterStats(playerNum);
+    p.energyPips -= 1;
+    p.qCastTimer = 0.24;
+    p.qCooldown = 0.25;
+    p.state = 'casting_q';
+    sound.playVoidSlash();
+
+    const dir = p.facing === 'right' ? 1 : -1;
+    const startX = p.x + p.width / 2;
+    const dashDist = 195;
+    p.x = Math.max(52, Math.min(this.width - 52 - p.width, p.x + dir * dashDist));
+    p.vx = dir * 320;
+    const endX = p.x + p.width / 2;
+    const midY = p.y + p.height * 0.45;
+
+    this.spawnDarkFlameBurst((startX + endX) / 2, midY, 18, 190);
+    this.lostvayneSlashes.push({
+      x: endX,
+      y: midY,
+      dir,
+      comboStep: 2,
+      radius: 72,
+      progress: 0,
+      duration: 0.22,
+      assault: true
+    });
+
+    const minX = Math.min(startX, endX) - 36;
+    const maxX = Math.max(startX, endX) + 36;
+    const dmg = Math.round(p.stats.skillDamage);
+    const opponent = playerNum === 1 ? this.player2 : this.player1;
+
+    if (this.gameMode === 'pvp' && opponent) {
+      const ox = opponent.x + opponent.width / 2;
+      const oy = opponent.y + opponent.height / 2;
+      if (ox >= minX && ox <= maxX && Math.abs(oy - midY) <= 84) {
+        this.applyDamageToPlayer(opponent, dmg, '#38BDF8', false);
+      }
+    } else if (this.gameMode === 'pve') {
+      for (const enemy of this.enemies) {
+        const ex = enemy.x + enemy.width / 2;
+        const ey = enemy.y + enemy.height / 2;
+        if (ex >= minX && ex <= maxX && Math.abs(ey - midY) <= 84) {
+          this.applyDamageToEnemy(enemy, dmg, '#38BDF8', false);
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Lancelot Skill Q: WUJUD RUBAH MERAH "SHIN" (Red Fox Transformation)
+   * Mengubah Lancelot menjadi rubah merah ikonik "Shin" selama 4.5 detik:
+   * - Meningkatkan kecepatan gerak secara signifikan (+45% Move Speed & kelincahan dash)
+   * - Melepaskan gelombang kejut penyergap yang melukai dan memperlambat (slow) lawan di sekitar
+   * - Dapat ditekan kembali untuk kembali ke wujud manusia lebih awal, atau otomatis kembali saat durasi habis.
+   */
+  tryLancelotShinTransform(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p || p.qCooldown > 0) return false;
+
+    // Jika sudah dalam wujud Rubah Shin, menekan Q kembali akan membatalkan wujud secara mulus tanpa biaya orb
+    if (p.shinFoxMode?.active) {
+      this.endShinFoxMode(playerNum);
+      p.qCooldown = 0.22;
+      return true;
+    }
+
+    if (p.energyPips < 1) return false;
+
+    p.energyPips -= 1;
+    p.qCastTimer = 0.26;
+    p.qCooldown = 0.30;
+    p.state = 'casting_q';
+    p.shinFoxMode.active = true;
+    p.shinFoxMode.duration = 4.5;
+    p.shinFoxMode.timeLeft = 4.5;
+    p.shinFoxMode.transformAnimTimer = 0.42;
+
+    this.syncCharacterStats(playerNum);
+    this.updateActiveSpriteRefs();
+    sound.playShinFoxTransform();
+
+    const dir = p.facing === 'right' ? 1 : -1;
+    const centerX = p.x + p.width / 2;
+    const centerY = p.y + p.height * 0.5;
+
+    // Lonjakan kelincahan awal ke depan saat berubah menjadi Shin
+    p.vx = dir * 560;
+    this.spawnFireBurst(centerX, centerY, 22, 200);
+
+    // Gelombang Kejut Penyergap Rubah Shin (Damage + Crowd-Control Slow pada lawan di dekatnya)
+    const pulseRadius = 155;
+    const dmg = Math.round(p.stats.skillDamage);
+    const opponent = playerNum === 1 ? this.player2 : this.player1;
+
+    if (this.gameMode === 'pvp' && opponent) {
+      const ox = opponent.x + opponent.width / 2;
+      const oy = opponent.y + opponent.height / 2;
+      if (Math.hypot(ox - centerX, oy - centerY) <= pulseRadius) {
+        opponent.slowTimer = 1.8;
+        this.applyDamageToPlayer(opponent, dmg, '#FB7185', false);
+      }
+    } else if (this.gameMode === 'pve') {
+      for (const enemy of this.enemies) {
+        const ex = enemy.x + enemy.width / 2;
+        const ey = enemy.y + enemy.height / 2;
+        if (Math.hypot(ex - centerX, ey - centerY) <= pulseRadius) {
+          this.applyDamageToEnemy(enemy, dmg, '#FB7185', false);
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Mengembalikan Lancelot dari wujud Rubah Merah "Shin" ke wujud Manusia secara bersih & aman.
+   */
+  endShinFoxMode(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p || !p.shinFoxMode) return;
+    p.shinFoxMode.active = false;
+    p.shinFoxMode.timeLeft = 0;
+    p.shinFoxMode.transformAnimTimer = 0;
+    this.syncCharacterStats(playerNum);
+    this.updateActiveSpriteRefs();
+    this.spawnDust(p.x + p.width / 2, p.y + p.height * 0.5, '#FEF08A', 10);
   }
 
   /**
@@ -863,13 +1397,15 @@ export class LocalPvPArenaGame {
       }
     }
 
-    for (const enemy of this.enemies) {
-      const ex = enemy.x + enemy.width / 2;
-      const ey = enemy.y + enemy.height;
-      const horizDist = Math.abs(ex - targetX);
-      const vertDist = Math.abs(ey - groundY);
-      if (horizDist <= pillarRadius + enemy.width * 0.45 && vertDist <= pillarHeight) {
-        this.applyDamageToEnemy(enemy, wave.damage, isAssault ? '#C084FC' : '#34D399', true);
+    if (this.gameMode === 'pve') {
+      for (const enemy of this.enemies) {
+        const ex = enemy.x + enemy.width / 2;
+        const ey = enemy.y + enemy.height;
+        const horizDist = Math.abs(ex - targetX);
+        const vertDist = Math.abs(ey - groundY);
+        if (horizDist <= pillarRadius + enemy.width * 0.45 && vertDist <= pillarHeight) {
+          this.applyDamageToEnemy(enemy, wave.damage, isAssault ? '#C084FC' : '#34D399', true);
+        }
       }
     }
   }
@@ -896,6 +1432,8 @@ export class LocalPvPArenaGame {
    * Dispatcher Ultimate R:
    * - Traveler: Inferno Domain
    * - Meliodas: Assault Mode (10-Second Transformation)
+   * - Void: Eclipse Overdrive (8-Second Dimensional Speed & Blade Overdrive)
+   * - Lancelot: Shining Road (Hazy Moon Homing Starlight Beam)
    */
   tryUltimateR(playerNum = 1) {
     if (this.matchOver) return false;
@@ -903,7 +1441,109 @@ export class LocalPvPArenaGame {
     if (charId === 'meliodas') {
       return this.tryAssaultMode(playerNum);
     }
+    if (charId === 'void') {
+      return this.tryVoidOverdrive(playerNum);
+    }
+    if (charId === 'lancelot') {
+      return this.tryLancelotShiningRoad(playerNum);
+    }
     return this.tryInfernoDomain(playerNum);
+  }
+
+  /**
+   * Void Ultimate R: ECLIPSE OVERDRIVE
+   */
+  tryVoidOverdrive(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p || p.voidOverdrive?.active || p.ultimateCharge < p.maxUltimate) {
+      return false;
+    }
+
+    p.voidOverdrive.active = true;
+    p.voidOverdrive.duration = 8.0;
+    p.voidOverdrive.timeLeft = 8.0;
+    p.voidOverdrive.transformAnimTimer = 0.45;
+    p.rCastTimer = 0.38;
+    p.state = 'casting_r';
+
+    this.syncCharacterStats(playerNum);
+    this.updateActiveSpriteRefs();
+    sound.playVoidOverdrive();
+    this.spawnDarkFlameBurst(p.x + p.width / 2, p.y + p.height / 2, 26, 230);
+    return true;
+  }
+
+  endVoidOverdrive(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p || !p.voidOverdrive) return;
+    p.voidOverdrive.active = false;
+    p.voidOverdrive.timeLeft = 0;
+    p.voidOverdrive.transformAnimTimer = 0;
+    p.ultimateCharge = 0;
+    this.syncCharacterStats(playerNum);
+    this.updateActiveSpriteRefs();
+  }
+
+  /**
+   * Lancelot Ultimate R: SHINING ROAD ("Moon's Guidance" / Sihir Hazy Moon)
+   * Menembakkan berkas cahaya bintang pemandu ikonik milik Lancelot yang mengunci posisi lawan
+   * dan menghantam dengan presisi tinggi serta visual cahaya bulan keemasan-biru langit.
+   */
+  tryLancelotShiningRoad(playerNum = 1) {
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (!p || p.shiningRoad?.active || p.ultimateCharge < p.maxUltimate) {
+      return false;
+    }
+
+    // Jika sedang dalam wujud Rubah Shin, kembali ke wujud manusia untuk menyalurkan Busur/Sihir Shining Road
+    if (p.shinFoxMode?.active) {
+      this.endShinFoxMode(playerNum);
+    }
+
+    p.ultimateCharge = 0;
+    p.rCastTimer = 0.48;
+    p.state = 'casting_r';
+    p.shiningRoad.active = true;
+    p.shiningRoad.duration = 1.15;
+    p.shiningRoad.timeLeft = 1.15;
+
+    this.updateActiveSpriteRefs();
+    sound.playShiningRoad();
+
+    const dir = p.facing === 'right' ? 1 : -1;
+    const startX = p.x + p.width / 2 + dir * 24;
+    const startY = p.y + p.height * 0.42;
+
+    // Tentukan target kunci (homing lock) pada lawan PvP atau musuh PvE
+    const opponent = playerNum === 1 ? this.player2 : this.player1;
+    let targetX = startX + dir * 480;
+    let targetY = startY;
+    if (this.gameMode === 'pvp' && opponent) {
+      targetX = opponent.x + opponent.width / 2;
+      targetY = opponent.y + opponent.height * 0.48;
+      p.facing = targetX >= p.x + p.width / 2 ? 'right' : 'left';
+    } else if (this.gameMode === 'pve' && this.enemies.length > 0) {
+      const e = this.enemies[0];
+      targetX = e.x + e.width / 2;
+      targetY = e.y + e.height * 0.48;
+      p.facing = targetX >= p.x + p.width / 2 ? 'right' : 'left';
+    }
+
+    this.spawnFireBurst(startX, startY, 24, 210);
+
+    this.shiningRoadBeams.push({
+      ownerPlayer: playerNum,
+      startX,
+      startY,
+      targetX,
+      targetY,
+      progress: 0,
+      duration: 0.85,
+      damage: 62,
+      hitDealt: false
+    });
+
+    return true;
   }
 
   /**
@@ -984,8 +1624,8 @@ export class LocalPvPArenaGame {
       p.energyCharge = 0;
     }
 
-    // Selama Assault Mode aktif, ultimate gauge terkunci hingga durasi 10 detik selesai
-    if (!p.assaultMode.active) {
+    // Selama Assault Mode / Void Overdrive aktif, ultimate gauge terkunci hingga durasi selesai
+    if (!p.assaultMode.active && !p.voidOverdrive?.active) {
       p.ultimateCharge = Math.min(p.maxUltimate, p.ultimateCharge + ultBoost);
     }
   }
@@ -995,6 +1635,13 @@ export class LocalPvPArenaGame {
     targetPlayer.hp = Math.max(0, targetPlayer.hp - amount);
     targetPlayer.hurtTimer = 0.16;
     if (isBurn) targetPlayer.burnVisualTimer = 0.45;
+
+    // Flinch / knockback fisik saat terkena benturan serangan langsung
+    const opp = targetPlayer === this.player1 ? this.player2 : this.player1;
+    if (opp && !isBurn) {
+      const pushDir = targetPlayer.x >= opp.x ? 1 : -1;
+      targetPlayer.vx += pushDir * 80;
+    }
 
     this.damageNumbers.push({
       x: targetPlayer.x + targetPlayer.width / 2 + (Math.random() - 0.5) * 24,
@@ -1025,6 +1672,7 @@ export class LocalPvPArenaGame {
   }
 
   applyDamageToEnemy(enemy, amount, labelColor = '#FFE08A', isBurn = false) {
+    if (this.gameMode !== 'pve' || !enemy) return;
     enemy.hp -= amount;
     enemy.hurtTimer = 0.16;
     if (isBurn) enemy.burnVisualTimer = 0.45;
@@ -1070,14 +1718,25 @@ export class LocalPvPArenaGame {
       sound.playWarning();
     }
 
-    this.player1.vx = 0;
-    this.player1.infernoDomain.active = false;
-    this.player1.assaultMode.active = false;
-    if (this.player2) {
-      this.player2.vx = 0;
-      this.player2.infernoDomain.active = false;
-      this.player2.assaultMode.active = false;
-    }
+    const resetTransformations = (p) => {
+      if (!p) return;
+      p.vx = 0;
+      p.infernoDomain.active = false;
+      p.assaultMode.active = false;
+      if (p.voidOverdrive) p.voidOverdrive.active = false;
+      if (p.shinFoxMode) {
+        p.shinFoxMode.active = false;
+        p.shinFoxMode.timeLeft = 0;
+      }
+      if (p.shiningRoad) {
+        p.shiningRoad.active = false;
+        p.shiningRoad.timeLeft = 0;
+      }
+    };
+
+    resetTransformations(this.player1);
+    resetTransformations(this.player2);
+    this.updateActiveSpriteRefs();
 
     if (this.onMatchEnd && !this.rewardAwarded) {
       this.rewardAwarded = true;
@@ -1085,6 +1744,13 @@ export class LocalPvPArenaGame {
     }
 
     this.showMatchResultUI();
+  }
+
+  getCharacterDisplayName(charId) {
+    if (charId === 'meliodas') return 'Meliodas';
+    if (charId === 'void') return 'Void';
+    if (charId === 'lancelot') return 'Lancelot';
+    return 'Traveler';
   }
 
   showMatchResultUI() {
@@ -1103,6 +1769,12 @@ export class LocalPvPArenaGame {
     const getFighterPreview = (charId, facing) => {
       if (charId === 'meliodas') {
         return getMeliodasSVG({ mode: 'normal', size: 68, facing });
+      }
+      if (charId === 'void') {
+        return getVoidSVG({ mode: 'normal', size: 68, facing });
+      }
+      if (charId === 'lancelot') {
+        return getLancelotSVG({ mode: 'human', size: 68, facing });
       }
       return getCharacterSVG({ outfitId: this.profile?.outfit, hatId: this.profile?.hat, rankId: this.rank?.id, size: 68, facing });
     };
@@ -1130,7 +1802,7 @@ export class LocalPvPArenaGame {
             <div class="card-sprite-wrap">
               ${getFighterPreview(charP1, 'right')}
             </div>
-            <div class="card-char-name">${charP1 === 'meliodas' ? 'Meliodas' : 'Traveler'}</div>
+            <div class="card-char-name">${this.getCharacterDisplayName(charP1)}</div>
             <div class="badge-outcome ${winnerNum === 1 ? 'win' : 'loss'}">
               ${winnerNum === 1 ? 'VICTORY' : 'DEFEAT'}
             </div>
@@ -1147,7 +1819,7 @@ export class LocalPvPArenaGame {
             <div class="card-sprite-wrap">
               ${isPvP ? getFighterPreview(charP2, 'left') : getBossSVG('oni_procrastination', 68)}
             </div>
-            <div class="card-char-name">${isPvP ? (charP2 === 'meliodas' ? 'Meliodas' : 'Traveler') : 'Oni Penundaan'}</div>
+            <div class="card-char-name">${isPvP ? this.getCharacterDisplayName(charP2) : 'Oni Penundaan'}</div>
             <div class="badge-outcome ${winnerNum === 2 ? 'win' : 'loss'}">
               ${winnerNum === 2 ? 'VICTORY' : 'DEFEAT'}
             </div>
@@ -1208,49 +1880,50 @@ export class LocalPvPArenaGame {
     this.rewardAwarded = false;
     this.currentMatchId = 'pvp_match_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
 
-    // Reset Player 1
-    this.player1.hp = this.player1.maxHp;
-    this.player1.x = 340;
-    this.player1.y = 500;
-    this.player1.vx = 0;
-    this.player1.vy = 0;
-    this.player1.facing = 'right';
-    this.player1.state = 'idle';
-    this.player1.dashCooldown = 0;
-    this.player1.qCooldown = 0;
-    this.player1.attackCooldown = 0;
-    this.player1.comboStep = 0;
-    this.player1.energyPips = 3;
-    this.player1.ultimateCharge = 0;
-    this.player1.hurtTimer = 0;
-    this.player1.burnVisualTimer = 0;
-    this.player1.invulnerableTimer = 0.5;
-    this.player1.assaultMode.active = false;
-    this.player1.infernoDomain.active = false;
+    const resetPlayerForRematch = (p, spawnX, facingDir) => {
+      if (!p) return;
+      p.hp = p.maxHp;
+      p.x = spawnX;
+      p.y = 500;
+      p.vx = 0;
+      p.vy = 0;
+      p.facing = facingDir;
+      p.state = 'idle';
+      p.dashCooldown = 0;
+      p.qCooldown = 0;
+      p.attackCooldown = 0;
+      p.comboStep = 0;
+      p.weaponMode = 'bow';
+      p.energyPips = 3;
+      p.ultimateCharge = 0;
+      p.hurtTimer = 0;
+      p.burnVisualTimer = 0;
+      p.slowTimer = 0;
+      p.invulnerableTimer = 0.5;
+      p.assaultMode.active = false;
+      p.assaultMode.timeLeft = 0;
+      p.infernoDomain.active = false;
+      p.infernoDomain.timeLeft = 0;
+      if (p.voidOverdrive) {
+        p.voidOverdrive.active = false;
+        p.voidOverdrive.timeLeft = 0;
+      }
+      if (p.shinFoxMode) {
+        p.shinFoxMode.active = false;
+        p.shinFoxMode.timeLeft = 0;
+      }
+      if (p.shiningRoad) {
+        p.shiningRoad.active = false;
+        p.shiningRoad.timeLeft = 0;
+      }
+    };
 
-    // Reset Player 2 (if PvP)
+    resetPlayerForRematch(this.player1, 340, 'right');
     if (this.gameMode === 'pvp' && this.player2) {
-      this.player2.hp = this.player2.maxHp;
-      this.player2.x = 920;
-      this.player2.y = 500;
-      this.player2.vx = 0;
-      this.player2.vy = 0;
-      this.player2.facing = 'left';
-      this.player2.state = 'idle';
-      this.player2.dashCooldown = 0;
-      this.player2.qCooldown = 0;
-      this.player2.attackCooldown = 0;
-      this.player2.comboStep = 0;
-      this.player2.energyPips = 3;
-      this.player2.ultimateCharge = 0;
-      this.player2.hurtTimer = 0;
-      this.player2.burnVisualTimer = 0;
-      this.player2.invulnerableTimer = 0.5;
-      this.player2.assaultMode.active = false;
-      this.player2.infernoDomain.active = false;
+      resetPlayerForRematch(this.player2, 920, 'left');
     }
 
-    // Reset PvE Enemy
+    // Reset PvE Enemy (only in PvE mode)
     if (this.gameMode === 'pve') {
       for (const enemy of this.enemies) {
         enemy.hp = enemy.maxHp;
@@ -1265,11 +1938,13 @@ export class LocalPvPArenaGame {
     this.hellblazeWaves = [];
     this.hellblazeEruptions = [];
     this.phoenixProjectiles = [];
+    this.shiningRoadBeams = [];
     this.particles = [];
     this.damageNumbers = [];
 
     this.syncCharacterStats(1);
     if (this.player2) this.syncCharacterStats(2);
+    this.updateActiveSpriteRefs();
 
     this.hideMatchResultUI();
     sound.playBGM();
@@ -1433,8 +2108,11 @@ export class LocalPvPArenaGame {
     if (p.rCastTimer > 0) p.rCastTimer -= dt;
     if (p.hurtTimer > 0) p.hurtTimer -= dt;
     if (p.burnVisualTimer > 0) p.burnVisualTimer -= dt;
+    if (p.slowTimer > 0) p.slowTimer = Math.max(0, p.slowTimer - dt);
     if (p.invulnerableTimer > 0) p.invulnerableTimer -= dt;
     if (p.assaultMode.transformAnimTimer > 0) p.assaultMode.transformAnimTimer -= dt;
+    if (p.voidOverdrive?.transformAnimTimer > 0) p.voidOverdrive.transformAnimTimer -= dt;
+    if (p.shinFoxMode?.transformAnimTimer > 0) p.shinFoxMode.transformAnimTimer -= dt;
 
     // 1. Passive Skill Energy Orb Regeneration (3 Orbs)
     if (p.energyPips < 3) {
@@ -1448,7 +2126,7 @@ export class LocalPvPArenaGame {
     }
 
     // 2. Passive Ultimate Gauge Regeneration
-    if (!p.infernoDomain.active && !p.assaultMode.active && p.ultimateCharge < p.maxUltimate) {
+    if (!p.infernoDomain.active && !p.assaultMode.active && !p.voidOverdrive?.active && !p.shiningRoad?.active && p.ultimateCharge < p.maxUltimate) {
       p.ultimateCharge = Math.min(p.maxUltimate, p.ultimateCharge + dt * 2.5);
     }
 
@@ -1491,12 +2169,14 @@ export class LocalPvPArenaGame {
         }
 
         // Damage musuh di mode PvE
-        for (const enemy of this.enemies) {
-          const ex = enemy.x + enemy.width / 2;
-          const ey = enemy.y + enemy.height / 2;
-          const dist = Math.hypot(ex - footX, ey - domainCenterY);
-          if (dist <= p.infernoDomain.radius + enemy.width * 0.4) {
-            this.applyDamageToEnemy(enemy, p.infernoDomain.damagePerTick, '#FF9F43', true);
+        if (this.gameMode === 'pve') {
+          for (const enemy of this.enemies) {
+            const ex = enemy.x + enemy.width / 2;
+            const ey = enemy.y + enemy.height / 2;
+            const dist = Math.hypot(ex - footX, ey - domainCenterY);
+            if (dist <= p.infernoDomain.radius + enemy.width * 0.4) {
+              this.applyDamageToEnemy(enemy, p.infernoDomain.damagePerTick, '#FF9F43', true);
+            }
           }
         }
       }
@@ -1531,6 +2211,60 @@ export class LocalPvPArenaGame {
         this.endAssaultMode(playerNum);
       }
     }
+
+    // 3C. Active Void Eclipse Overdrive (R Ultimate)
+    if (p.voidOverdrive?.active) {
+      p.voidOverdrive.timeLeft -= dt;
+      if (!this.reducedMotion && Math.random() < 0.7) {
+        const footX = p.x + p.width / 2;
+        const footY = p.y + p.height;
+        this.particles.push({
+          x: footX + (Math.random() - 0.5) * 38,
+          y: footY - 8 - Math.random() * 36,
+          vx: (Math.random() - 0.5) * 24,
+          vy: -45 - Math.random() * 55,
+          alpha: 0.85,
+          color: Math.random() > 0.4 ? '#38BDF8' : '#81ECEC',
+          size: 4 + Math.random() * 4,
+          life: 0.32
+        });
+      }
+      if (p.voidOverdrive.timeLeft <= 0) {
+        this.endVoidOverdrive(playerNum);
+      }
+    }
+
+    // 3D. Active Lancelot Wujud Rubah Merah "Shin" (Q Skill)
+    if (p.shinFoxMode?.active) {
+      p.shinFoxMode.timeLeft -= dt;
+      if (!this.reducedMotion && Math.random() < 0.72) {
+        const footX = p.x + p.width / 2;
+        const footY = p.y + p.height;
+        this.particles.push({
+          x: footX + (Math.random() - 0.5) * 32,
+          y: footY - 6 - Math.random() * 24,
+          vx: -p.vx * 0.12,
+          vy: -25 - Math.random() * 35,
+          alpha: 0.82,
+          color: Math.random() > 0.4 ? '#FB7185' : '#FEF08A',
+          size: 4 + Math.random() * 3.5,
+          life: 0.28
+        });
+      }
+      if (p.shinFoxMode.timeLeft <= 0) {
+        this.endShinFoxMode(playerNum);
+      }
+    }
+
+    // 3E. Active Lancelot Shining Road State (R Ultimate)
+    if (p.shiningRoad?.active) {
+      p.shiningRoad.timeLeft -= dt;
+      if (p.shiningRoad.timeLeft <= 0) {
+        p.shiningRoad.active = false;
+        p.shiningRoad.timeLeft = 0;
+        this.updateActiveSpriteRefs();
+      }
+    }
   }
 
   update(dt) {
@@ -1556,7 +2290,7 @@ export class LocalPvPArenaGame {
       this.updatePlayerMovementAndPhysics(this.player2, inP2, 2, dt);
     }
 
-    // 6. Update Sparring Enemy (in PvE mode)
+    // 6. Update Sparring Enemy (ONLY in PvE mode)
     if (this.gameMode === 'pve') {
       for (const enemy of this.enemies) {
         if (enemy.hurtTimer > 0) enemy.hurtTimer -= dt;
@@ -1573,7 +2307,7 @@ export class LocalPvPArenaGame {
       }
     }
 
-    // 7. Update Traveler Basic Attack Projectiles & Hit Detection
+    // 7. Update Basic Attack Projectiles (Traveler Crescent & Lancelot Fairy Bow Arrows) & Hit Detection
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
       proj.x += proj.vx * dt;
@@ -1595,6 +2329,7 @@ export class LocalPvPArenaGame {
       let hitTarget = false;
       const owner = proj.ownerPlayer || 1;
       const targetP = owner === 1 ? this.player2 : this.player1;
+      const hitColor = proj.isLancelotArrow ? '#38BDF8' : '#FFE08A';
 
       // Hit against other player in PvP mode
       if (this.gameMode === 'pvp' && targetP) {
@@ -1604,15 +2339,15 @@ export class LocalPvPArenaGame {
           proj.y + proj.radius > targetP.y &&
           proj.y - proj.radius < targetP.y + targetP.height
         ) {
-          this.applyDamageToPlayer(targetP, proj.damage || 14, '#FFE08A', false);
+          this.applyDamageToPlayer(targetP, proj.damage || 14, hitColor, false);
           this.grantOnHitEnergy(0.38, 9, owner);
-          this.spawnDust(proj.x, proj.y, '#FFE08A', 8);
+          this.spawnDust(proj.x, proj.y, hitColor, 8);
           hitTarget = true;
         }
       }
 
-      // Hit against PvE enemy
-      if (!hitTarget) {
+      // Hit against PvE enemy (only in PvE mode)
+      if (!hitTarget && this.gameMode === 'pve') {
         for (const enemy of this.enemies) {
           if (
             proj.x + proj.radius > enemy.x &&
@@ -1620,9 +2355,9 @@ export class LocalPvPArenaGame {
             proj.y + proj.radius > enemy.y &&
             proj.y - proj.radius < enemy.y + enemy.height
           ) {
-            this.applyDamageToEnemy(enemy, proj.damage || 14, '#FFE08A', false);
+            this.applyDamageToEnemy(enemy, proj.damage || 14, hitColor, false);
             this.grantOnHitEnergy(0.38, 9, owner);
-            this.spawnDust(proj.x, proj.y, '#FFE08A', 8);
+            this.spawnDust(proj.x, proj.y, hitColor, 8);
             hitTarget = true;
             break;
           }
@@ -1630,7 +2365,7 @@ export class LocalPvPArenaGame {
       }
 
       if (hitTarget || proj.life <= 0 || proj.x < 30 || proj.x > this.width - 30) {
-        if (!hitTarget) this.spawnDust(proj.x, proj.y, '#FFE08A', 6);
+        if (!hitTarget) this.spawnDust(proj.x, proj.y, hitColor, 6);
         this.projectiles.splice(i, 1);
       }
     }
@@ -1675,8 +2410,8 @@ export class LocalPvPArenaGame {
         }
       }
 
-      // Hit against PvE enemy
-      if (!hitTarget) {
+      // Hit against PvE enemy (only in PvE mode)
+      if (!hitTarget && this.gameMode === 'pve') {
         for (const enemy of this.enemies) {
           if (
             phx.x + phx.radius > enemy.x &&
@@ -1736,8 +2471,8 @@ export class LocalPvPArenaGame {
         }
       }
 
-      // Check collision with PvE enemy
-      if (!reachedTarget) {
+      // Check collision with PvE enemy (only in PvE mode)
+      if (!reachedTarget && this.gameMode === 'pve') {
         for (const enemy of this.enemies) {
           const enemyCenterX = enemy.x + enemy.width / 2;
           const enemyFeetY = enemy.y + enemy.height;
@@ -1766,6 +2501,49 @@ export class LocalPvPArenaGame {
       er.progress += dt / er.duration;
       if (er.progress >= 1) {
         this.hellblazeEruptions.splice(i, 1);
+      }
+    }
+
+    // 8D. Update Lancelot Ultimate R: SHINING ROAD Homing Starlight Beams
+    for (let i = this.shiningRoadBeams.length - 1; i >= 0; i--) {
+      const beam = this.shiningRoadBeams[i];
+      beam.progress += dt / beam.duration;
+
+      const owner = beam.ownerPlayer || 1;
+      const caster = owner === 1 ? this.player1 : this.player2;
+      const targetP = owner === 1 ? this.player2 : this.player1;
+
+      if (caster) {
+        const dir = caster.facing === 'right' ? 1 : -1;
+        beam.startX = caster.x + caster.width / 2 + dir * 24;
+        beam.startY = caster.y + caster.height * 0.42;
+      }
+
+      // Homing tracking (Moon's Guidance) mengunci posisi lawan
+      if (this.gameMode === 'pvp' && targetP) {
+        beam.targetX += ((targetP.x + targetP.width / 2) - beam.targetX) * Math.min(1, dt * 12);
+        beam.targetY += ((targetP.y + targetP.height * 0.48) - beam.targetY) * Math.min(1, dt * 12);
+      } else if (this.gameMode === 'pve' && this.enemies.length > 0) {
+        const e = this.enemies[0];
+        beam.targetX += ((e.x + e.width / 2) - beam.targetX) * Math.min(1, dt * 12);
+        beam.targetY += ((e.y + e.height * 0.48) - beam.targetY) * Math.min(1, dt * 12);
+      }
+
+      if (!beam.hitDealt && beam.progress >= 0.32) {
+        beam.hitDealt = true;
+        if (this.gameMode === 'pvp' && targetP) {
+          this.applyDamageToPlayer(targetP, beam.damage, '#38BDF8', false);
+          this.spawnFireBurst(beam.targetX, beam.targetY, 24, 230);
+        } else if (this.gameMode === 'pve') {
+          for (const enemy of this.enemies) {
+            this.applyDamageToEnemy(enemy, beam.damage, '#38BDF8', false);
+            this.spawnFireBurst(beam.targetX, beam.targetY, 24, 230);
+          }
+        }
+      }
+
+      if (beam.progress >= 1) {
+        this.shiningRoadBeams.splice(i, 1);
       }
     }
 
@@ -2524,13 +3302,59 @@ export class LocalPvPArenaGame {
    * - Tentakel bayangan hidup (writhing living shadow tendrils) melonjak dari tanah
    * - Pendaran dan retakan klan iblis pada pijakan tanah
    */
-  renderAssaultModeAura() {
-    const p = this.player;
-    if (this.characterId !== 'meliodas' || !p.assaultMode.active) return;
-
+  renderAssaultModeAura(p = this.player, charId = this.characterId) {
+    if (!p) return;
     const ctx = this.ctx;
     const footX = p.x + p.width / 2;
     const footY = p.y + p.height - 2;
+
+    // Aura Void Eclipse Overdrive
+    if (charId === 'void' && p.voidOverdrive?.active) {
+      ctx.save();
+      const vGlow = ctx.createRadialGradient(footX, footY - 24, 6, footX, footY - 24, 72);
+      vGlow.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+      vGlow.addColorStop(0.6, 'rgba(109, 40, 217, 0.32)');
+      vGlow.addColorStop(1, 'rgba(30, 27, 75, 0)');
+      ctx.fillStyle = vGlow;
+      ctx.beginPath();
+      ctx.arc(footX, footY - 24, 72, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(129, 236, 236, 0.75)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(footX, footY, 56, 14, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    // Aura Lancelot Wujud Rubah Merah "Shin" & Transformasi Burst
+    if (charId === 'lancelot' && p.shinFoxMode?.active) {
+      ctx.save();
+      const sGlow = ctx.createRadialGradient(footX, footY - 18, 4, footX, footY - 18, 62);
+      sGlow.addColorStop(0, 'rgba(244, 63, 94, 0.42)');
+      sGlow.addColorStop(0.6, 'rgba(250, 204, 21, 0.25)');
+      sGlow.addColorStop(1, 'rgba(244, 63, 94, 0)');
+      ctx.fillStyle = sGlow;
+      ctx.beginPath();
+      ctx.arc(footX, footY - 18, 62, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (p.shinFoxMode.transformAnimTimer > 0) {
+        const t = 1 - (p.shinFoxMode.transformAnimTimer / 0.42);
+        const ringR = 20 + t * 130;
+        ctx.strokeStyle = `rgba(244, 63, 94, ${1 - t})`;
+        ctx.lineWidth = 4 * (1 - t);
+        ctx.beginPath();
+        ctx.arc(footX, footY - 24, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+
+    if (charId !== 'meliodas' || !p.assaultMode.active) return;
+
     const chestY = footY - 48;
     const pulse = 0.88 + Math.sin(this.envTime * 8) * 0.12;
     const wingFlap = Math.sin(this.envTime * 5.5) * 6;
@@ -2561,7 +3385,6 @@ export class LocalPvPArenaGame {
     ctx.stroke();
 
     // 3. Proyeksi Sayap Kegelapan Ethereal di Belakang Meliodas (Broad Ethereal Wings of Darkness)
-    // Melengkapi sayap pixel-art utama dengan pendaran energi dinamis tanpa mengaburkan siluet karakter
     ctx.save();
     ctx.translate(footX, chestY + 6);
     // Sayap Kiri
@@ -2590,7 +3413,7 @@ export class LocalPvPArenaGame {
     ctx.stroke();
     ctx.restore();
 
-    // 4. Orb Materi Kegelapan Melayang (Iconic Floating Darkness Sphere dari Referensi Utama)
+    // 4. Orb Materi Kegelapan Melayang
     const orbX = footX + dir * 42;
     const orbY = chestY - 12 + Math.sin(this.envTime * 4.2) * 5;
     const orbGrad = ctx.createRadialGradient(orbX, orbY, 2, orbX, orbY, 13);
@@ -2614,7 +3437,7 @@ export class LocalPvPArenaGame {
       ctx.fill();
     }
 
-    // 5. Lidah Bayangan Hidup di Sisi Kiri & Kanan Kaki (Menjaga Torso & Wajah Tetap 100% Terbaca)
+    // 5. Lidah Bayangan Hidup di Sisi Kiri & Kanan Kaki
     const offsets = [-44, -30, 30, 44];
     for (let i = 0; i < offsets.length; i++) {
       const ox = offsets[i];
@@ -2660,6 +3483,8 @@ export class LocalPvPArenaGame {
   }
 
   renderEnemies() {
+    // Hanya dirender pada mode Solo Training ('pve'). Dalam Local PvP ('pvp'), Oni Kage Daruma tidak pernah dirender!
+    if (this.gameMode !== 'pve' || !this.enemies || this.enemies.length === 0) return;
     const ctx = this.ctx;
     for (const enemy of this.enemies) {
       ctx.save();
@@ -2755,24 +3580,68 @@ export class LocalPvPArenaGame {
       ctx.restore();
     }
 
-    // 2. Traveler Basic Attack Projectiles
+    // 2. Basic Attack Projectiles (Traveler Crescent & Lancelot Fairy Bow Arrows)
     for (const proj of this.projectiles) {
       ctx.save();
-      const pGrad = ctx.createRadialGradient(proj.x, proj.y, 2, proj.x, proj.y, proj.radius * 1.3);
-      pGrad.addColorStop(0, '#FFFFFF');
-      pGrad.addColorStop(0.45, '#FFE08A');
-      pGrad.addColorStop(1, 'rgba(232, 165, 181, 0)');
-      ctx.fillStyle = pGrad;
-      ctx.beginPath();
-      ctx.arc(proj.x, proj.y, proj.radius * 1.3, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#FFFDF8';
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
       const dir = proj.vx > 0 ? 1 : -1;
-      ctx.arc(proj.x - dir * 4, proj.y, proj.radius * 0.85, -Math.PI / 2.3, Math.PI / 2.3, dir < 0);
-      ctx.stroke();
+
+      if (proj.isLancelotArrow) {
+        // Anak Panah Cahaya Bintang (Lancelot Fairy Bow Arrow)
+        ctx.translate(proj.x, proj.y);
+        ctx.scale(dir, 1);
+
+        const aGrad = ctx.createRadialGradient(4, 0, 2, 0, 0, 24);
+        aGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        aGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.75)');
+        aGrad.addColorStop(1, 'rgba(250, 204, 21, 0)');
+        ctx.fillStyle = aGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 26, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Batang & Mata Panah Cahaya Emas-Biru
+        ctx.strokeStyle = '#FEF08A';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-22, 0);
+        ctx.lineTo(14, 0);
+        ctx.stroke();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#0284C7';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(22, 0);
+        ctx.lineTo(9, -6);
+        ctx.lineTo(12, 0);
+        ctx.lineTo(9, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Bulu Panah Peri (Feather Fletching)
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-16, 0); ctx.lineTo(-24, -5);
+        ctx.moveTo(-16, 0); ctx.lineTo(-24, 5);
+        ctx.stroke();
+      } else {
+        const pGrad = ctx.createRadialGradient(proj.x, proj.y, 2, proj.x, proj.y, proj.radius * 1.3);
+        pGrad.addColorStop(0, '#FFFFFF');
+        pGrad.addColorStop(0.45, '#FFE08A');
+        pGrad.addColorStop(1, 'rgba(232, 165, 181, 0)');
+        ctx.fillStyle = pGrad;
+        ctx.beginPath();
+        ctx.arc(proj.x, proj.y, proj.radius * 1.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#FFFDF8';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(proj.x - dir * 4, proj.y, proj.radius * 0.85, -Math.PI / 2.3, Math.PI / 2.3, dir < 0);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
@@ -2789,28 +3658,33 @@ export class LocalPvPArenaGame {
       this.drawHellblazeEruptionPillar(ctx, er);
     }
 
-    // 5. Traveler Slash Arc Effects
+    // 4B. Lancelot Ultimate R: SHINING ROAD Celestial Homing Beams
+    for (const beam of this.shiningRoadBeams) {
+      this.drawShiningRoadBeam(ctx, beam);
+    }
+
+    // 5. Traveler & Lancelot Shirojika Slash Arc Effects
     for (const slash of this.slashEffects) {
       ctx.save();
       ctx.translate(slash.x, slash.y);
       ctx.scale(slash.dir, 1);
 
       const alpha = Math.max(0, 1 - slash.progress);
-      ctx.strokeStyle = `rgba(255, 224, 138, ${alpha})`;
-      ctx.lineWidth = 5 * (1 - slash.progress * 0.4);
+      ctx.strokeStyle = slash.shirojika ? `rgba(255, 255, 255, ${alpha})` : `rgba(255, 224, 138, ${alpha})`;
+      ctx.lineWidth = (slash.shirojika ? 6.5 : 5) * (1 - slash.progress * 0.4);
       ctx.beginPath();
       ctx.arc(0, 0, slash.radius * (0.75 + slash.progress * 0.45), -Math.PI / 2.6, Math.PI / 2.6);
       ctx.stroke();
 
-      ctx.strokeStyle = `rgba(232, 165, 181, ${alpha * 0.85})`;
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = slash.shirojika ? `rgba(56, 189, 248, ${alpha * 0.92})` : `rgba(232, 165, 181, ${alpha * 0.85})`;
+      ctx.lineWidth = slash.shirojika ? 3.2 : 2.5;
       ctx.beginPath();
       ctx.arc(0, 0, slash.radius * (0.62 + slash.progress * 0.35), -Math.PI / 2.8, Math.PI / 2.8);
       ctx.stroke();
       ctx.restore();
     }
 
-    // 6. Meliodas Lostvayne Sword Slash Arcs
+    // 6. Meliodas Lostvayne & Void Dimensional Slash Arcs
     for (const lv of this.lostvayneSlashes) {
       this.drawLostvayneSlashArc(ctx, lv);
     }
@@ -2828,6 +3702,68 @@ export class LocalPvPArenaGame {
       ctx.fillText(dn.text, dn.x, dn.y);
       ctx.restore();
     }
+  }
+
+  /**
+   * Menggambar Ultimate R Lancelot: SHINING ROAD ("Moon's Guidance" / Sihir Hazy Moon)
+   * Menampilkan lingkaran cahaya bulan di sisi Lancelot, berkas cahaya bintang pemandu
+   * yang mengunci posisi lawan, serta pilar tombak cahaya surgawi di titik hantaman.
+   */
+  drawShiningRoadBeam(ctx, beam) {
+    ctx.save();
+    const alpha = beam.progress < 0.2
+      ? (beam.progress / 0.2)
+      : Math.max(0, 1 - (beam.progress - 0.2) / 0.8);
+
+    ctx.globalAlpha = alpha;
+
+    // 1. Segel Lingkaran Bulan "Hazy Moon" di titik tembak Lancelot
+    ctx.strokeStyle = '#FEF08A';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(beam.startX, beam.startY, 28 + beam.progress * 12, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 2. Berkas Cahaya Bintang Pemandu (Guided Celestial Starlight Beam)
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+    ctx.lineWidth = 34 * alpha;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(beam.startX, beam.startY);
+    ctx.lineTo(beam.targetX, beam.targetY);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#FEF08A';
+    ctx.lineWidth = 16 * alpha;
+    ctx.beginPath();
+    ctx.moveTo(beam.startX, beam.startY);
+    ctx.lineTo(beam.targetX, beam.targetY);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 7 * alpha;
+    ctx.beginPath();
+    ctx.moveTo(beam.startX, beam.startY);
+    ctx.lineTo(beam.targetX, beam.targetY);
+    ctx.stroke();
+
+    // 3. Pilar & Cincin Hantaman Cahaya Bintang di posisi lawan yang terkunci
+    const r = 38 + beam.progress * 44;
+    const hitGrad = ctx.createRadialGradient(beam.targetX, beam.targetY, 4, beam.targetX, beam.targetY, r);
+    hitGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+    hitGrad.addColorStop(0.45, 'rgba(254, 240, 138, 0.85)');
+    hitGrad.addColorStop(0.8, 'rgba(56, 189, 248, 0.5)');
+    hitGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = hitGrad;
+    ctx.beginPath();
+    ctx.arc(beam.targetX, beam.targetY, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pilar vertikal Shining Road di titik target
+    ctx.fillStyle = 'rgba(224, 242, 254, 0.72)';
+    ctx.fillRect(beam.targetX - 18 * alpha, beam.targetY - 190, 36 * alpha, 230);
+
+    ctx.restore();
   }
 
   /**
@@ -3179,6 +4115,28 @@ export class LocalPvPArenaGame {
         sRight = this.meliodasNormalRight;
         sLeft = this.meliodasNormalLeft;
       }
+    } else if (charId === 'void') {
+      if (p.voidOverdrive?.active) {
+        sRight = this.voidOverdriveRight;
+        sLeft = this.voidOverdriveLeft;
+      } else {
+        sRight = this.voidNormalRight;
+        sLeft = this.voidNormalLeft;
+      }
+    } else if (charId === 'lancelot') {
+      if (p.shinFoxMode?.active) {
+        sRight = this.lancelotShinRight;
+        sLeft = this.lancelotShinLeft;
+      } else if (p.shiningRoad?.active) {
+        sRight = this.lancelotShiningRight;
+        sLeft = this.lancelotShiningLeft;
+      } else if (p.weaponMode === 'sword' && p.state === 'attacking') {
+        sRight = this.lancelotSwordRight;
+        sLeft = this.lancelotSwordLeft;
+      } else {
+        sRight = this.lancelotHumanRight;
+        sLeft = this.lancelotHumanLeft;
+      }
     }
 
     const footX = p.x + p.width / 2;
@@ -3272,6 +4230,20 @@ export class LocalPvPArenaGame {
       bobY = -6;
       scaleX = 1.06;
       scaleY = 1.06;
+    } else if (p.state === 'hurt') {
+      tiltAngle = -dir * 0.28;
+      shiftX = -dir * 6;
+      bobY = 3;
+      scaleX = 1.05;
+      scaleY = 0.92;
+    }
+
+    // Getaran & reaksi hit frame saat p.hurtTimer > 0
+    if (p.hurtTimer > 0) {
+      const shakeIntensity = p.hurtTimer / 0.16;
+      shiftX += (Math.sin(p.hurtTimer * 60) * 4) * shakeIntensity;
+      bobY += (Math.cos(p.hurtTimer * 45) * 3) * shakeIntensity;
+      tiltAngle += (p.facing === 'right' ? -0.12 : 0.12) * shakeIntensity;
     }
 
     ctx.translate(shiftX, bobY);
@@ -3282,11 +4254,25 @@ export class LocalPvPArenaGame {
     const sprite = p.facing === 'left' ? sLeft : sRight;
 
     if (this.spritesReady && sprite.complete && sprite.naturalWidth > 0) {
+      if (p.hurtTimer > 0 || p.state === 'hurt') {
+        ctx.filter = 'brightness(1.85) drop-shadow(0 0 10px rgba(239, 68, 68, 0.85))';
+      } else if (p.burnVisualTimer > 0) {
+        ctx.filter = 'drop-shadow(0 0 12px rgba(249, 115, 22, 0.88))';
+      }
+
       ctx.drawImage(sprite, -drawSize / 2, -78, drawSize, drawSize);
+
+      if (p.hurtTimer > 0 || p.state === 'hurt' || p.burnVisualTimer > 0) {
+        ctx.filter = 'none';
+      }
 
       if (p.state === 'walking') {
         const stride = Math.sin(p.walkCycle);
-        ctx.fillStyle = (charId === 'meliodas' && p.assaultMode.active) ? '#0B0612' : '#26364A';
+        let footColor = '#26364A';
+        if (charId === 'meliodas' && p.assaultMode.active) footColor = '#0B0612';
+        else if (charId === 'void') footColor = p.voidOverdrive?.active ? '#38BDF8' : '#1E293B';
+        else if (charId === 'lancelot' && p.shinFoxMode?.active) footColor = '#991B1B';
+        ctx.fillStyle = footColor;
         ctx.fillRect(stride * 7.5 - 7, -10 - Math.max(0, stride * 4.5), 6, 6);
         ctx.fillRect(-stride * 7.5 + 1, -10 - Math.max(0, -stride * 4.5), 6, 6);
       }
@@ -3299,6 +4285,14 @@ export class LocalPvPArenaGame {
           atkGlow.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
           atkGlow.addColorStop(0.5, p.assaultMode.active ? 'rgba(147, 51, 234, 0.72)' : 'rgba(52, 211, 153, 0.7)');
           atkGlow.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        } else if (charId === 'void') {
+          atkGlow.addColorStop(0, 'rgba(224, 242, 254, 0.92)');
+          atkGlow.addColorStop(0.5, 'rgba(168, 85, 247, 0.75)');
+          atkGlow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        } else if (charId === 'lancelot') {
+          atkGlow.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+          atkGlow.addColorStop(0.5, p.shinFoxMode?.active ? 'rgba(249, 115, 22, 0.72)' : 'rgba(56, 189, 248, 0.72)');
+          atkGlow.addColorStop(1, 'rgba(250, 204, 21, 0)');
         } else {
           atkGlow.addColorStop(0, 'rgba(255, 253, 248, 0.95)');
           atkGlow.addColorStop(0.5, 'rgba(255, 224, 138, 0.7)');
@@ -3323,6 +4317,21 @@ export class LocalPvPArenaGame {
           ctx.fillRect(6, -1, 24, 4);
           ctx.fillStyle = '#E5B84B';
           ctx.fillRect(1, -6, 4, 10);
+          ctx.restore();
+        } else if (charId === 'lancelot' && p.state === 'attacking' && p.weaponMode === 'sword' && !p.shinFoxMode?.active) {
+          // Proyeksi kilatan katana Shirojika ("White Deer")
+          const swingProg = 1 - Math.max(0, p.attackTimer / p.attackDuration);
+          const swingAngle = (-1.1 + swingProg * 2.0) * dir;
+          ctx.save();
+          ctx.translate(dir * 18, -42);
+          ctx.rotate(swingAngle);
+          ctx.scale(dir, 1);
+          ctx.fillStyle = '#38BDF8';
+          ctx.fillRect(4, -3, 28, 3);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(6, -1, 28, 3);
+          ctx.fillStyle = '#FACC15';
+          ctx.fillRect(1, -5, 4, 9);
           ctx.restore();
         }
       }
@@ -3370,7 +4379,15 @@ export class LocalPvPArenaGame {
     if (!p) return;
     const ctx = this.ctx;
     const isMeliodas = charId === 'meliodas';
-    const isUltActive = isMeliodas ? p.assaultMode.active : p.infernoDomain.active;
+    const isVoid = charId === 'void';
+    const isLancelot = charId === 'lancelot';
+    const isUltActive = isMeliodas
+      ? p.assaultMode.active
+      : isVoid
+        ? Boolean(p.voidOverdrive?.active)
+        : isLancelot
+          ? Boolean(p.shiningRoad?.active)
+          : p.infernoDomain.active;
     const isLeft = side === 'left';
 
     ctx.save();
@@ -3390,6 +4407,12 @@ export class LocalPvPArenaGame {
       if (isMeliodas && isUltActive) {
         readyGlow.addColorStop(0, 'rgba(147, 51, 234, 0.65)');
         readyGlow.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      } else if (isVoid) {
+        readyGlow.addColorStop(0, 'rgba(168, 85, 247, 0.65)');
+        readyGlow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      } else if (isLancelot) {
+        readyGlow.addColorStop(0, 'rgba(56, 189, 248, 0.65)');
+        readyGlow.addColorStop(1, 'rgba(250, 204, 21, 0)');
       } else {
         readyGlow.addColorStop(0, 'rgba(255, 224, 138, 0.55)');
         readyGlow.addColorStop(1, 'rgba(255, 118, 71, 0)');
@@ -3408,13 +4431,19 @@ export class LocalPvPArenaGame {
     ctx.fill();
     ctx.stroke();
 
-    ctx.strokeStyle = isUltActive ? (isMeliodas ? '#C084FC' : '#FF7647') : '#FFE08A';
+    ctx.strokeStyle = isUltActive
+      ? (isMeliodas ? '#C084FC' : isVoid ? '#A855F7' : isLancelot ? '#38BDF8' : '#FF7647')
+      : '#FFE08A';
     ctx.lineWidth = 4.5;
     ctx.beginPath();
     const arcFrac = isUltActive
       ? (isMeliodas
         ? (p.assaultMode.timeLeft / p.assaultMode.duration)
-        : (p.infernoDomain.timeLeft / p.infernoDomain.duration))
+        : isVoid
+          ? (p.voidOverdrive.timeLeft / p.voidOverdrive.duration)
+          : isLancelot
+            ? (p.shiningRoad.timeLeft / p.shiningRoad.duration)
+            : (p.infernoDomain.timeLeft / p.infernoDomain.duration))
       : ultFraction;
     ctx.arc(centerRingX, centerRingY, ringRadius - 4.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * arcFrac);
     ctx.stroke();
@@ -3441,6 +4470,36 @@ export class LocalPvPArenaGame {
       ctx.fillStyle = isUltReady || isUltActive ? '#34D399' : '#CBD5E1';
       ctx.beginPath();
       ctx.arc(0, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (isVoid) {
+      ctx.fillStyle = isUltReady || isUltActive ? '#A855F7' : '#64748B';
+      ctx.beginPath();
+      ctx.moveTo(0, -14);
+      ctx.lineTo(10, 0);
+      ctx.lineTo(0, 14);
+      ctx.lineTo(-10, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = isUltReady || isUltActive ? '#38BDF8' : '#CBD5E1';
+      ctx.beginPath();
+      ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (isLancelot) {
+      ctx.fillStyle = isUltReady || isUltActive ? '#38BDF8' : '#64748B';
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(4, -4);
+      ctx.lineTo(15, 0);
+      ctx.lineTo(4, 4);
+      ctx.lineTo(0, 15);
+      ctx.lineTo(-4, 4);
+      ctx.lineTo(-15, 0);
+      ctx.lineTo(-4, -4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#FACC15';
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
       ctx.fill();
     } else {
       ctx.fillStyle = isUltReady || isUltActive ? '#FF7647' : '#8C6A7B';
@@ -3477,6 +4536,10 @@ export class LocalPvPArenaGame {
     let rBadgeText = isUltReady ? 'R • SIAP' : `R • ${Math.floor(ultFraction * 100)}%`;
     if (isMeliodas && p.assaultMode.active) {
       rBadgeText = `${p.assaultMode.timeLeft.toFixed(1)}s`;
+    } else if (isVoid && p.voidOverdrive?.active) {
+      rBadgeText = `${p.voidOverdrive.timeLeft.toFixed(1)}s`;
+    } else if (isLancelot && p.shiningRoad?.active) {
+      rBadgeText = 'SHINING';
     }
     ctx.fillText(rBadgeText, centerRingX, centerRingY + ringRadius - 1);
 
@@ -3522,6 +4585,7 @@ export class LocalPvPArenaGame {
     const pipsY = barStartY + barHeight + 16;
     const maxPips = 3;
     const pipRadius = 9;
+    const pipAccent = isMeliodas ? '#34D399' : isVoid ? '#A855F7' : isLancelot ? '#38BDF8' : '#FFE08A';
 
     for (let i = 0; i < maxPips; i++) {
       const pipX = isLeft
@@ -3529,7 +4593,7 @@ export class LocalPvPArenaGame {
         : barStartX + barWidth - 10 - i * 26;
 
       ctx.fillStyle = 'rgba(26, 32, 44, 0.92)';
-      ctx.strokeStyle = i < p.energyPips ? (isMeliodas ? '#34D399' : '#FFE08A') : '#4A5568';
+      ctx.strokeStyle = i < p.energyPips ? pipAccent : '#4A5568';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(pipX, pipsY, pipRadius, 0, Math.PI * 2);
@@ -3542,6 +4606,14 @@ export class LocalPvPArenaGame {
           orbGrad.addColorStop(0, '#ECFDF5');
           orbGrad.addColorStop(0.5, '#34D399');
           orbGrad.addColorStop(1, '#6B21A8');
+        } else if (isVoid) {
+          orbGrad.addColorStop(0, '#F3E8FF');
+          orbGrad.addColorStop(0.5, '#A855F7');
+          orbGrad.addColorStop(1, '#38BDF8');
+        } else if (isLancelot) {
+          orbGrad.addColorStop(0, '#FFFDF8');
+          orbGrad.addColorStop(0.5, '#38BDF8');
+          orbGrad.addColorStop(1, '#FACC15');
         } else {
           orbGrad.addColorStop(0, '#FFFDF8');
           orbGrad.addColorStop(0.55, '#FFE08A');
@@ -3552,7 +4624,7 @@ export class LocalPvPArenaGame {
         ctx.arc(pipX, pipsY, pipRadius - 2, 0, Math.PI * 2);
         ctx.fill();
       } else if (i === p.energyPips) {
-        ctx.strokeStyle = isMeliodas ? '#34D399' : '#FFE08A';
+        ctx.strokeStyle = pipAccent;
         ctx.lineWidth = 2.2;
         ctx.beginPath();
         ctx.arc(pipX, pipsY, pipRadius - 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p.energyCharge);
@@ -3565,9 +4637,14 @@ export class LocalPvPArenaGame {
     ctx.font = 'bold 10.5px "Cinzel", "Georgia", serif';
     ctx.textAlign = isLeft ? 'left' : 'right';
     ctx.textBaseline = 'middle';
-    const hudLabel = isMeliodas
-      ? `[${playerLabel}] MELIODAS ${p.assaultMode.active ? '(ASSAULT 150%)' : ''}`
-      : `[${playerLabel}] TRAVELER`;
+    let hudLabel = `[${playerLabel}] TRAVELER`;
+    if (isMeliodas) {
+      hudLabel = `[${playerLabel}] MELIODAS ${p.assaultMode.active ? '(ASSAULT 150%)' : ''}`;
+    } else if (isVoid) {
+      hudLabel = `[${playerLabel}] VOID ${p.voidOverdrive?.active ? '(OVERDRIVE)' : '(SHADOW)'}`;
+    } else if (isLancelot) {
+      hudLabel = `[${playerLabel}] LANCELOT ${p.shinFoxMode?.active ? `(SHIN FOX ${p.shinFoxMode.timeLeft.toFixed(1)}s)` : ''}`;
+    }
     const labelX = isLeft ? barStartX + 90 : barStartX + barWidth - 90;
     ctx.fillText(hudLabel, labelX, pipsY);
 

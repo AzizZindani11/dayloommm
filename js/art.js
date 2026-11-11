@@ -820,6 +820,356 @@ export function getMeliodasPortraitSVG() {
 }
 
 /**
+ * Menghasilkan SVG Karakter Playable Ketiga: VOID (Pendekar Bayangan Kosong)
+ * Dirancang di atas grid piksel 64x64 dengan siluet ramping berkecepatan tinggi,
+ * jubah dimensi indigo-obsidian, rambut perak, dan Sabit Kembar Dimensi.
+ */
+export function getVoidSVG({ mode = 'normal', size = 120, facing = 'right' } = {}) {
+  const flipTransform = facing === 'left' ? 'scale(-1, 1) translate(-64, 0)' : '';
+  const isOverdrive = mode === 'overdrive';
+  const auraGlow = isOverdrive
+    ? `<circle cx="32" cy="34" r="24" fill="#6C5CE7" opacity="0.22"/>
+       <circle cx="32" cy="34" r="27" fill="none" stroke="#81ECEC" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.85"/>`
+    : `<circle cx="32" cy="36" r="18" fill="#6C5CE7" opacity="0.1"/>`;
+
+  return `
+  <svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="character-pixel-svg void-character-svg ${isOverdrive ? 'void-overdrive-svg' : ''}" shape-rendering="crispEdges">
+    <g transform="${flipTransform}">
+      <!-- Bayangan Pijakan Dimensi -->
+      <ellipse cx="31" cy="60" rx="14" ry="3" fill="#1E1B4B" opacity="0.55"/>
+      ${auraGlow}
+
+      <!-- Syal Bayangan Berkibar di Belakang (Menegaskan Kecepatan Tinggi) -->
+      <rect x="8" y="26" width="12" height="4" fill="#4C1D95"/>
+      <rect x="4" y="29" width="11" height="4" fill="#6D28D9"/>
+      <rect x="2" y="32" width="8" height="3" fill="#81ECEC"/>
+
+      <!-- Sepatu & Pelindung Kaki Ninja Dimensi -->
+      <rect x="23" y="48" width="5" height="10" fill="#0F172A"/>
+      <rect x="34" y="48" width="5" height="10" fill="#0F172A"/>
+      <rect x="22" y="56" width="7" height="3" fill="#312E81"/>
+      <rect x="34" y="56" width="7" height="3" fill="#312E81"/>
+      <rect x="24" y="50" width="3" height="2" fill="#81ECEC"/>
+      <rect x="35" y="50" width="3" height="2" fill="#81ECEC"/>
+
+      <!-- Jubah Tempur Ramping Obsidian & Sabuk Astral -->
+      <rect x="22" y="28" width="18" height="20" fill="#1E1B4B" stroke="#0F172A" stroke-width="1.5"/>
+      <rect x="25" y="29" width="12" height="17" fill="#312E81"/>
+      <!-- Garis Rune Cyan di Dada -->
+      <rect x="29" y="30" width="4" height="12" fill="#81ECEC"/>
+      <rect x="22" y="42" width="18" height="3" fill="#6D28D9"/>
+      <rect x="29" y="41" width="4" height="5" fill="#FACC15"/>
+
+      <!-- Tudung & Rambut Perak Runcing -->
+      <rect x="20" y="10" width="22" height="18" fill="#1E1B4B" stroke="#0F172A" stroke-width="1.5"/>
+      <rect x="22" y="12" width="18" height="6" fill="#E2E8F0"/>
+      <rect x="20" y="14" width="4" height="8" fill="#CBD5E1"/>
+      <rect x="38" y="14" width="4" height="8" fill="#CBD5E1"/>
+      <!-- Wajah & Masker Bayangan Separuh -->
+      <rect x="24" y="17" width="14" height="10" fill="#F1F5F9"/>
+      <rect x="23" y="22" width="16" height="6" fill="#0F172A"/>
+      <!-- Mata Dimensi Cyan Menyala -->
+      <rect x="26" y="19" width="4" height="3" fill="#06B6D4"/>
+      <rect x="27" y="19" width="2" height="2" fill="#CFFAFE"/>
+      <rect x="33" y="19" width="4" height="3" fill="#06B6D4"/>
+      <rect x="34" y="19" width="2" height="2" fill="#CFFAFE"/>
+
+      <!-- Sabit Kembar Dimensi (Void Twin Scythes) -->
+      <rect x="40" y="30" width="8" height="3" fill="#475569"/>
+      <path d="M46 18 Q58 26 48 44 Q52 29 44 22 Z" fill="#81ECEC" stroke="#1E1B4B" stroke-width="1.2"/>
+      <path d="M18 32 Q8 38 14 50 Q13 40 20 35 Z" fill="#C4B5FD" stroke="#1E1B4B" stroke-width="1.2"/>
+    </g>
+  </svg>`;
+}
+
+/**
+ * Menghasilkan Potret Ilustrasi 2D Editorial Resmi: VOID (Pendekar Bayangan Kosong)
+ */
+export function getVoidPortraitSVG() {
+  return `
+  <svg viewBox="0 0 600 800" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Void — Potret Resmi Pendekar Bayangan Kosong">
+    <defs>
+      <linearGradient id="voidPortraitBg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#F5F3FF"/>
+        <stop offset="55%" stop-color="#EDE9FE"/>
+        <stop offset="100%" stop-color="#E0E7FF"/>
+      </linearGradient>
+      <linearGradient id="voidBladeGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#CFFAFE"/>
+        <stop offset="50%" stop-color="#38BDF8"/>
+        <stop offset="100%" stop-color="#6D28D9"/>
+      </linearGradient>
+    </defs>
+    <rect width="600" height="800" fill="url(#voidPortraitBg)"/>
+    <rect x="340" y="0" width="260" height="800" fill="#6D28D9" opacity="0.12"/>
+    <circle cx="300" cy="360" r="230" fill="#FFFDF9" stroke="#6D28D9" stroke-width="2.5" opacity="0.85"/>
+    <text x="48" y="96" font-family="'Cinzel', 'Georgia', serif" font-size="42" font-weight="900" fill="#1E1B4B" opacity="0.14" letter-spacing="6">VOID</text>
+    <text x="52" y="130" font-family="'Plus Jakarta Sans', sans-serif" font-size="14" font-weight="800" fill="#6D28D9" opacity="0.65" letter-spacing="4">DIMENSIONAL SHADOW • TWIN VOID SCYTHES</text>
+    <rect x="64" y="148" width="472" height="570" rx="22" fill="#FFFDF9" stroke="#1E1B4B" stroke-width="3.5"/>
+    <rect x="82" y="166" width="436" height="476" rx="14" fill="#1E1B4B" stroke="#6D28D9" stroke-width="2"/>
+    <circle cx="300" cy="360" r="155" fill="none" stroke="#38BDF8" stroke-width="2" stroke-dasharray="10 6" opacity="0.55"/>
+    <!-- Siluet Karakter Void Editorial -->
+    <path d="M165 640 L205 430 Q300 400 395 430 L435 640 Z" fill="#312E81" stroke="#81ECEC" stroke-width="3"/>
+    <polygon points="260,430 340,430 325,640 275,640" fill="#0F172A"/>
+    <circle cx="300" cy="315" r="72" fill="#F8FAFC" stroke="#1E1B4B" stroke-width="3.5"/>
+    <path d="M225 325 L375 325 L360 405 Q300 425 240 405 Z" fill="#0F172A" stroke="#38BDF8" stroke-width="2.5"/>
+    <ellipse cx="272" cy="305" rx="14" ry="8" fill="#06B6D4"/>
+    <ellipse cx="328" cy="305" rx="14" ry="8" fill="#06B6D4"/>
+    <path d="M200 285 L235 195 L300 175 L365 195 L400 285 Q300 240 200 285 Z" fill="#E2E8F0" stroke="#1E1B4B" stroke-width="3.2"/>
+    <path d="M390 480 Q505 320 415 195 Q455 330 365 445 Z" fill="url(#voidBladeGrad)" stroke="#FFF" stroke-width="2.5"/>
+    <text x="92" y="684" font-family="'Cinzel', 'Georgia', serif" font-size="24" font-weight="900" fill="#1E1B4B" letter-spacing="2">VOID</text>
+    <text x="92" y="705" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" font-weight="700" fill="#6D28D9">Pendekar Bayangan Kosong • Sabit Kembar Dimensi</text>
+  </svg>`;
+}
+
+/**
+ * Menghasilkan SVG Karakter Playable Keempat: LANCELOT (Four Knights of the Apocalypse)
+ * Mendukung:
+ * - mode === 'human' / 'normal': Wujud manusia Pangeran Benwick dengan Busur Peri Cahaya & Katana Shirojika di pinggang.
+ * - mode === 'sword': Wujud manusia menebas menggunakan katana legendaris Shirojika ("White Deer") pemberian Nanashi.
+ * - mode === 'shin': Transformasi Skill [Q] menjadi rubah merah ikonik "Shin" lengkap dengan kalung kristal biru-hijau.
+ * - mode === 'shining_road': Wujud manusia menyalurkan sihir Hazy Moon — Shining Road.
+ */
+export function getLancelotSVG({ mode = 'human', size = 120, facing = 'right' } = {}) {
+  const flipTransform = facing === 'left' ? 'scale(-1, 1) translate(-64, 0)' : '';
+
+  // Mode Rubah Merah "Shin" (Skill Q)
+  if (mode === 'shin') {
+    return `
+    <svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="character-pixel-svg lancelot-shin-fox-svg" shape-rendering="crispEdges">
+      <g transform="${flipTransform}">
+        <!-- Bayangan & Aura Angin Rubah Shin -->
+        <ellipse cx="32" cy="59" rx="16" ry="3" fill="#26364A" opacity="0.38"/>
+        <ellipse cx="32" cy="46" rx="22" ry="9" fill="#F43F5E" opacity="0.16"/>
+
+        <!-- Ekor Lebat Rubah Merah dengan Ujung Putih Khas Shin -->
+        <rect x="6" y="34" width="12" height="10" fill="#E11D48" stroke="#26364A" stroke-width="1.5"/>
+        <rect x="3" y="31" width="7" height="8" fill="#FFFDF9" stroke="#26364A" stroke-width="1.2"/>
+        <rect x="10" y="36" width="7" height="6" fill="#FB7185"/>
+
+        <!-- Tubuh Ramping & Lincah Rubah Merah Shin -->
+        <rect x="18" y="38" width="24" height="12" fill="#E11D48" stroke="#26364A" stroke-width="1.5"/>
+        <!-- Bulu Dada & Perut Putih-Krem -->
+        <rect x="24" y="44" width="16" height="5" fill="#FFFDF9"/>
+        <rect x="36" y="37" width="8" height="9" fill="#FFFDF9"/>
+
+        <!-- Kaki Rubah Tangkas dengan Ujung Cakar Gelap -->
+        <rect x="20" y="50" width="4" height="8" fill="#BE123C"/>
+        <rect x="26" y="50" width="4" height="7" fill="#9F1239"/>
+        <rect x="35" y="50" width="4" height="8" fill="#BE123C"/>
+        <rect x="40" y="50" width="4" height="7" fill="#9F1239"/>
+        <rect x="20" y="56" width="5" height="2" fill="#1E293B"/>
+        <rect x="35" y="56" width="5" height="2" fill="#1E293B"/>
+
+        <!-- Kalung Liontin Kristal Biru-Hijau Khas Shin -->
+        <rect x="35" y="35" width="9" height="3" fill="#78350F"/>
+        <polygon points="43,38 46,42 43,46 40,42" fill="#38BDF8" stroke="#0F172A" stroke-width="1"/>
+
+        <!-- Kepala & Telinga Runcing Rubah Shin -->
+        <polygon points="34,24 38,14 43,24" fill="#E11D48" stroke="#26364A" stroke-width="1.5"/>
+        <polygon points="43,24 48,14 51,24" fill="#E11D48" stroke="#26364A" stroke-width="1.5"/>
+        <polygon points="36,23 38,17 41,23" fill="#FDE68A"/>
+        <polygon points="45,23 47,17 49,23" fill="#FDE68A"/>
+
+        <rect x="34" y="23" width="18" height="13" fill="#E11D48" stroke="#26364A" stroke-width="1.5"/>
+        <!-- Moncong Putih & Hidung Hitam -->
+        <rect x="44" y="29" width="11" height="6" fill="#FFFDF9" stroke="#26364A" stroke-width="1.2"/>
+        <rect x="53" y="29" width="3" height="3" fill="#0F172A"/>
+        <!-- Mata Emas Tajam & Tenang Khas Shin/Lancelot -->
+        <rect x="43" y="26" width="4" height="3" fill="#FACC15"/>
+        <rect x="45" y="26" width="2" height="2" fill="#78350F"/>
+      </g>
+    </svg>`;
+  }
+
+  const isSword = mode === 'sword';
+  const isShiningRoad = mode === 'shining_road';
+  const shiningHalo = isShiningRoad
+    ? `<circle cx="32" cy="30" r="25" fill="#38BDF8" opacity="0.2"/>
+       <circle cx="32" cy="30" r="28" fill="none" stroke="#FEF08A" stroke-width="2" stroke-dasharray="5 3"/>`
+    : '';
+
+  return `
+  <svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="character-pixel-svg lancelot-human-svg ${isShiningRoad ? 'lancelot-shining-svg' : ''}" shape-rendering="crispEdges">
+    <g transform="${flipTransform}">
+      <!-- Bayangan Pijakan -->
+      <ellipse cx="30" cy="60" rx="14" ry="3" fill="#26364A" opacity="0.38"/>
+      ${shiningHalo}
+
+      <!-- Jubah Pendek Merah Crimson Pangeran Benwick -->
+      <path d="M16 27 L24 27 L20 49 L11 47 Z" fill="#991B1B" stroke="#26364A" stroke-width="1.4"/>
+
+      <!-- Sepatu Bot Tinggi & Celana Ksatria -->
+      <rect x="23" y="46" width="5" height="12" fill="#1E293B"/>
+      <rect x="33" y="46" width="5" height="12" fill="#1E293B"/>
+      <rect x="22" y="52" width="6" height="6" fill="#78350F"/>
+      <rect x="33" y="52" width="6" height="6" fill="#78350F"/>
+      <rect x="22" y="51" width="6" height="2" fill="#EAB308"/>
+      <rect x="33" y="51" width="6" height="2" fill="#EAB308"/>
+
+      <!-- Tunik Ksatria Merah Crimson & Aksen Emas Benwick -->
+      <rect x="21" y="27" width="19" height="20" fill="#DC2626" stroke="#26364A" stroke-width="1.5"/>
+      <rect x="25" y="28" width="11" height="18" fill="#B91C1C"/>
+      <!-- Kerah Bulu Putih & Ornamen Emas -->
+      <rect x="20" y="25" width="21" height="4" fill="#FFFDF9" stroke="#26364A" stroke-width="1.2"/>
+      <rect x="29" y="28" width="3" height="16" fill="#FACC15"/>
+      <rect x="21" y="41" width="19" height="3" fill="#78350F"/>
+      <rect x="28" y="40" width="5" height="5" fill="#FACC15"/>
+
+      <!-- Sarung Katana Putih Legendaris "Shirojika" (White Deer) di Pinggang -->
+      <line x1="14" y1="48" x2="34" y2="38" stroke="#FFFDF9" stroke-width="3.2" stroke-linecap="round"/>
+      <line x1="14" y1="48" x2="34" y2="38" stroke="#CBD5E1" stroke-width="1.4" stroke-linecap="round"/>
+
+      <!-- Kepala & Wajah Tenang Lancelot -->
+      <rect x="22" y="13" width="17" height="13" fill="#FAD7BD" stroke="#26364A" stroke-width="1.5"/>
+      <!-- Mata Emas Amber Tajam -->
+      <rect x="26" y="18" width="3" height="3" fill="#D97706"/>
+      <rect x="27" y="18" width="1.5" height="1.5" fill="#FEF08A"/>
+      <rect x="34" y="18" width="3" height="3" fill="#D97706"/>
+      <rect x="35" y="18" width="1.5" height="1.5" fill="#FEF08A"/>
+
+      <!-- Rambut Pirang Keemasan Pucat (Golden-Ash Blonde) Berponi Khas Lancelot -->
+      <path d="M19 16 L21 9 L30 7 L40 9 L42 17 L39 14 L35 17 L31 13 L27 17 L23 14 Z" fill="#FDE047" stroke="#26364A" stroke-width="1.5"/>
+      <rect x="20" y="13" width="3" height="8" fill="#FACC15"/>
+      <rect x="38" y="13" width="3" height="8" fill="#FACC15"/>
+
+      ${isSword ? `
+        <!-- Senjata Jarak Dekat: Katana Legendaris SHIROJIKA ("White Deer") Terhunus -->
+        <rect x="39" y="32" width="6" height="3" fill="#FFFDF9" stroke="#26364A" stroke-width="1"/>
+        <path d="M44 33 Q56 24 62 12 Q58 27 45 36 Z" fill="#F8FAFC" stroke="#38BDF8" stroke-width="1.4"/>
+      ` : `
+        <!-- Senjata Utama: Busur Peri Cahaya (Fairy Bow) & Anak Panah Bintang -->
+        <path d="M43 14 Q55 30 43 46" fill="none" stroke="#FACC15" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="43" y1="15" x2="43" y2="45" stroke="#E0F2FE" stroke-width="1.2"/>
+        <line x1="36" y1="30" x2="57" y2="30" stroke="#38BDF8" stroke-width="2.2"/>
+        <polygon points="61,30 55,27 55,33" fill="#FEF08A"/>
+      `}
+    </g>
+  </svg>`;
+}
+
+/**
+ * Menghasilkan Potret Ilustrasi 2D Editorial Resmi: LANCELOT (Four Knights of the Apocalypse)
+ * Menampilkan Lancelot dengan Busur Peri Cahaya, Katana Shirojika ("White Deer"),
+ * dan siluet roh rubah merah Shin di latar editorial Dayloom.
+ */
+export function getLancelotPortraitSVG() {
+  return `
+  <svg viewBox="0 0 600 800" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lancelot — Potret Resmi Kesatria Perang Benwick dengan Busur Peri, Katana Shirojika, dan Rubah Merah Shin">
+    <defs>
+      <linearGradient id="lanPortraitBg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#FFFBEB"/>
+        <stop offset="52%" stop-color="#FEF2F2"/>
+        <stop offset="100%" stop-color="#EFF6FF"/>
+      </linearGradient>
+      <linearGradient id="lanHairGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FEF9C3"/>
+        <stop offset="55%" stop-color="#FDE047"/>
+        <stop offset="100%" stop-color="#CA8A04"/>
+      </linearGradient>
+      <linearGradient id="shiningRoadGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#FFFFFF"/>
+        <stop offset="45%" stop-color="#BAE6FD"/>
+        <stop offset="100%" stop-color="#38BDF8"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Latar Editorial Modern Dayloom (Warm Ivory, Crimson & Celestial Azure) -->
+    <rect width="600" height="800" fill="url(#lanPortraitBg)"/>
+    <rect x="340" y="0" width="260" height="800" fill="#DC2626" opacity="0.1"/>
+    <line x1="340" y1="0" x2="340" y2="800" stroke="#DC2626" stroke-width="3" opacity="0.3"/>
+
+    <!-- Lingkaran Bulan Hazy Moon (Shining Road Crest) -->
+    <circle cx="300" cy="360" r="235" fill="#FFFDF8" stroke="#EAB308" stroke-width="2.5" opacity="0.9"/>
+    <circle cx="300" cy="360" r="212" fill="none" stroke="#38BDF8" stroke-width="1.8" stroke-dasharray="12 8" opacity="0.65"/>
+
+    <!-- Tipografi Editorial Latar -->
+    <text x="48" y="96" font-family="'Cinzel', 'Georgia', serif" font-size="42" font-weight="900" fill="#26364A" opacity="0.13" letter-spacing="6">LANCELOT</text>
+    <text x="52" y="130" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" font-weight="800" fill="#B91C1C" opacity="0.65" letter-spacing="3.5">PRINCE OF BENWICK • SHIN • SHINING ROAD</text>
+
+    <!-- Bingkai Kartu Editorial Tengah -->
+    <rect x="64" y="148" width="472" height="570" rx="22" fill="#FFFDF9" stroke="#26364A" stroke-width="3.5"/>
+    <rect x="82" y="166" width="436" height="476" rx="14" fill="#F8FAFC" stroke="#D49A3D" stroke-width="2"/>
+
+    <!-- Siluet Bulan Purnama "Hazy Moon" & Berkas Cahaya Shining Road -->
+    <circle cx="415" cy="255" r="64" fill="#FEF08A" opacity="0.75"/>
+    <circle cx="415" cy="255" r="78" fill="none" stroke="#38BDF8" stroke-width="2" opacity="0.5"/>
+    <path d="M82 545 Q210 435 320 480 Q430 410 518 495 L518 642 L82 642 Z" fill="#FEE2E2" opacity="0.65"/>
+
+    <!-- ================= KARAKTER LANCELOT (WUJUD MANUSIA + SHIROJIKA + BUSUR PERI) ================= -->
+    <g transform="translate(0, 10)">
+      <!-- Jubah Merah Crimson & Kerah Bulu Putih Pangeran Benwick -->
+      <path d="M135 632 L172 448 Q236 424 300 424 Q364 424 428 448 L465 632 Z" fill="#B91C1C" stroke="#26364A" stroke-width="3.5" stroke-linejoin="round"/>
+      <polygon points="232,435 368,435 348,632 252,632" fill="#FFFDF8" stroke="#26364A" stroke-width="3"/>
+      <line x1="300" y1="440" x2="300" y2="632" stroke="#EAB308" stroke-width="5"/>
+      <!-- Kerah Bulu Putih Kerajaan -->
+      <path d="M175 452 Q235 415 300 442 Q365 415 425 452 Q365 478 300 462 Q235 478 175 452 Z" fill="#FFFFFF" stroke="#26364A" stroke-width="3"/>
+
+      <!-- Leher & Wajah Muda Tenang Karismatik Lancelot -->
+      <rect x="270" y="380" width="60" height="58" fill="#FAD7BD" stroke="#26364A" stroke-width="3"/>
+      <path d="M220 264 Q220 374 300 394 Q380 374 380 264 Z" fill="#FAD7BD" stroke="#26364A" stroke-width="3.4"/>
+
+      <!-- Mata Emas Amber Tajam & Tenang -->
+      <g transform="translate(258, 316)">
+        <ellipse cx="0" cy="0" rx="17" ry="19" fill="#FFFFFF" stroke="#26364A" stroke-width="3"/>
+        <circle cx="1" cy="1" r="11" fill="#D97706"/>
+        <circle cx="1" cy="1" r="5" fill="#451A03"/>
+        <circle cx="-3" cy="-4" r="3.8" fill="#FFFFFF"/>
+        <path d="M-20 -13 Q0 -20 19 -11" stroke="#26364A" stroke-width="3.8" fill="none" stroke-linecap="round"/>
+      </g>
+      <g transform="translate(342, 316)">
+        <ellipse cx="0" cy="0" rx="17" ry="19" fill="#FFFFFF" stroke="#26364A" stroke-width="3"/>
+        <circle cx="-1" cy="1" r="11" fill="#D97706"/>
+        <circle cx="-1" cy="1" r="5" fill="#451A03"/>
+        <circle cx="-3" cy="-4" r="3.8" fill="#FFFFFF"/>
+        <path d="M-19 -11 Q0 -20 20 -13" stroke="#26364A" stroke-width="3.8" fill="none" stroke-linecap="round"/>
+      </g>
+
+      <!-- Alis & Ekspresi Tenang Percaya Diri -->
+      <path d="M238 286 L278 292" stroke="#CA8A04" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M362 286 L322 292" stroke="#CA8A04" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M286 364 Q300 370 314 364" stroke="#26364A" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+
+      <!-- Rambut Pirang Pucat (Golden-Ash Blonde) Berponi Khas Lancelot -->
+      <path d="M204 318 L175 268 L206 210 L254 176 L300 170 L346 176 L394 210 L425 268 L396 318 L378 262 L352 312 L332 252 L302 314 L276 252 L252 312 L224 262 Z" fill="url(#lanHairGrad)" stroke="#26364A" stroke-width="3.4" stroke-linejoin="round"/>
+
+      <!-- Katana Legendaris SHIROJIKA ("White Deer" pemberian Nanashi) di Sisi Kiri -->
+      <g transform="translate(155, 515) rotate(-32)">
+        <rect x="-12" y="-120" width="20" height="210" rx="6" fill="#FFFFFF" stroke="#26364A" stroke-width="3.2"/>
+        <rect x="-16" y="-55" width="28" height="10" rx="3" fill="#EAB308" stroke="#26364A" stroke-width="2.5"/>
+        <line x1="-10" y1="-100" x2="6" y2="-90" stroke="#CBD5E1" stroke-width="2.5"/>
+        <line x1="-10" y1="-80" x2="6" y2="-70" stroke="#CBD5E1" stroke-width="2.5"/>
+      </g>
+
+      <!-- Busur Peri Cahaya & Panah Shining Road di Sisi Kanan -->
+      <g transform="translate(425, 420) rotate(12)">
+        <path d="M-25,-165 Q65,0 -25,165" fill="none" stroke="#EAB308" stroke-width="9" stroke-linecap="round"/>
+        <path d="M-25,-165 Q65,0 -25,165" fill="none" stroke="#FEF08A" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="-22" y1="-158" x2="-22" y2="158" stroke="#38BDF8" stroke-width="2.5"/>
+        <line x1="-75" y1="0" x2="55" y2="0" stroke="url(#shiningRoadGrad)" stroke-width="6" stroke-linecap="round"/>
+        <polygon points="72,0 48,-12 48,12" fill="#38BDF8" stroke="#26364A" stroke-width="2"/>
+      </g>
+
+      <!-- Emblem Mini Wujud Rubah Merah "Shin" di Sudut Kiri Atas Bingkai -->
+      <g transform="translate(135, 225)">
+        <circle cx="0" cy="0" r="36" fill="#FFF1F2" stroke="#E11D48" stroke-width="2.5"/>
+        <polygon points="-18,-6 -10,-24 -2,-8" fill="#E11D48" stroke="#26364A" stroke-width="2"/>
+        <polygon points="18,-6 10,-24 2,-8" fill="#E11D48" stroke="#26364A" stroke-width="2"/>
+        <polygon points="-20,-6 20,-6 14,16 0,24 -14,16" fill="#E11D48" stroke="#26364A" stroke-width="2"/>
+        <polygon points="-12,8 12,8 0,24" fill="#FFFDF9"/>
+        <circle cx="-7" cy="2" r="3" fill="#FACC15"/>
+        <circle cx="7" cy="2" r="3" fill="#FACC15"/>
+        <polygon points="0,24 4,31 0,36 -4,31" fill="#38BDF8" stroke="#26364A" stroke-width="1.5"/>
+      </g>
+    </g>
+
+    <!-- Bar Bawah Kartu Editorial -->
+    <text x="92" y="684" font-family="'Cinzel', 'Georgia', serif" font-size="24" font-weight="900" fill="#26364A" letter-spacing="2">LANCELOT</text>
+    <text x="92" y="705" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" font-weight="700" fill="#B91C1C">Kesatria Perang Benwick • Wujud Rubah Shin &amp; Shining Road</text>
+  </svg>`;
+}
+
+/**
  * Menghasilkan Ilustrasi Lencana Pencapaian (Achievements) Pixel-Art
  */
 export function getAchievementSVG(iconType, unlocked = false, size = 56) {
@@ -984,6 +1334,8 @@ export function getIconSVG(name, size = 18) {
     edit: `<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2"/>`,
     volumeOn: `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="2"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`,
     volumeOff: `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="2"/><line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2"/><line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2"/>`,
+    music: `<path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="16" r="3" stroke="currentColor" stroke-width="2"/>`,
+    sliders: `<line x1="4" y1="21" x2="4" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="10" x2="4" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="21" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="8" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="21" x2="20" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="12" x2="20" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="14" x2="7" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="17" y1="16" x2="23" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`,
     sun: `<circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/><line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2"/><line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2"/><line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2"/><line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2"/>`,
     sunset: `<path d="M17 18a5 5 0 0 0-10 0" stroke="currentColor" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="2" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64" stroke="currentColor" stroke-width="2"/><line x1="1" y1="18" x2="3" y2="18" stroke="currentColor" stroke-width="2"/><line x1="21" y1="18" x2="23" y2="18" stroke="currentColor" stroke-width="2"/><line x1="23" y1="22" x2="1" y2="22" stroke="currentColor" stroke-width="2"/>`,
     moon: `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2"/>`,

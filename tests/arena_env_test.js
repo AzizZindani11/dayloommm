@@ -50,8 +50,8 @@ console.log('  [LULUS] 3. Restorasi Traveler, karusel karakter Arena Dojo, dan i
 const { getMeliodasSVG, getMeliodasPortraitSVG, getLostvayneSVG } = await import('../js/art.js');
 const { PLAYABLE_CHARACTERS } = await import('../js/config.js');
 
-assert.equal(PLAYABLE_CHARACTERS.length, 2, 'Terdapat 2 karakter playable resmi: Traveler dan Meliodas');
-assert.deepEqual(PLAYABLE_CHARACTERS.map(c => c.id), ['traveler', 'meliodas']);
+assert.equal(PLAYABLE_CHARACTERS.length, 4, 'Terdapat 4 karakter playable resmi: Traveler, Meliodas, Void, dan Lancelot');
+assert.deepEqual(PLAYABLE_CHARACTERS.map(c => c.id), ['traveler', 'meliodas', 'void', 'lancelot']);
 
 const lostvayneSvg = getLostvayneSVG();
 assert.ok(lostvayneSvg.includes('#143D30'), 'Lostvayne memiliki punggung bilah hijau tua khas');
@@ -91,7 +91,8 @@ const travelerGame = new LocalPvPArenaGame({
   container: null,
   profile: { selectedCharacter: 'traveler' },
   rank: { id: 'epic' },
-  characterId: 'traveler'
+  characterId: 'traveler',
+  gameMode: 'pve'
 });
 
 assert.equal(travelerGame.characterId, 'traveler', 'Karakter awal adalah Traveler');
@@ -122,7 +123,8 @@ const melGame = new LocalPvPArenaGame({
   container: null,
   profile: { selectedCharacter: 'meliodas' },
   rank: { id: 'mythic' },
-  characterId: 'meliodas'
+  characterId: 'meliodas',
+  gameMode: 'pve'
 });
 
 assert.equal(melGame.characterId, 'meliodas', 'Meliodas berhasil dimuat sebagai karakter playable');
